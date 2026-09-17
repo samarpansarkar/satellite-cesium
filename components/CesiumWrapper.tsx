@@ -1,22 +1,37 @@
 "use client";
 
 import dynamic from "next/dynamic";
+import { Box, CircularProgress, Typography } from "@mui/material";
 
 const CesiumViewer = dynamic(() => import("./CesiumViewer"), {
   ssr: false,
   loading: () => (
-    <div className="w-full h-[600px] flex flex-col items-center justify-center bg-zinc-900/60 rounded-2xl border border-zinc-800 backdrop-blur-md">
-      <div className="relative flex items-center justify-center">
-        <div className="w-12 h-12 rounded-full border-2 border-cyan-500/20 border-t-cyan-400 animate-spin" />
-        <div className="absolute w-6 h-6 rounded-full border border-sky-400/40 animate-ping" />
-      </div>
-      <p className="mt-4 text-zinc-400 text-sm font-mono tracking-wide">
+    <Box
+      sx={{
+        width: "100%",
+        height: "100%",
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        justifyContent: "center",
+        bgcolor: "background.paper",
+        borderRadius: 2,
+        border: "1px solid",
+        borderColor: "divider",
+      }}
+    >
+      <CircularProgress color="primary" />
+      <Typography variant="body2" sx={{ mt: 2, color: "text.secondary" }}>
         Loading CesiumJS 3D Globe Engine...
-      </p>
-    </div>
+      </Typography>
+    </Box>
   ),
 });
 
-export default function CesiumWrapper() {
-  return <CesiumViewer />;
+interface CesiumWrapperProps {
+  hiddenSatellites: string[];
+}
+
+export default function CesiumWrapper(props: CesiumWrapperProps) {
+  return <CesiumViewer {...props} />;
 }
