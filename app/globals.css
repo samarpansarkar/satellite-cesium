@@ -1,0 +1,25 @@
+@import "tailwindcss";
+
+:root {
+  --background: #09090b;
+  --foreground: #f4f4f5;
+  --font-sans: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans);
+  margin: 0;
+  padding: 0;
+}
+
+/* Cesium credit / widget overrides for clean dark styling */
+.cesium-viewer-bottom {
+  opacity: 0.75;
+  transition: opacity 0.2s ease;
+}
+.cesium-viewer-bottom:hover {
+  opacity: 1;
+}
