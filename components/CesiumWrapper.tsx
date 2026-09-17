@@ -30,6 +30,9 @@ const CesiumViewer = dynamic(() => import("./CesiumViewer"), {
 
 interface CesiumWrapperProps {
   hiddenSatellites: string[];
+  simulationSpeed: number;
+  showOrbits: boolean;
+  baseMapMode: "natural" | "grid";
 }
 
 export default function CesiumWrapper(props: CesiumWrapperProps) {

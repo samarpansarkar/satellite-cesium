@@ -36,7 +36,10 @@ function calculateSatPosition(sat: SatelliteData, timeSec: number): Cesium.Carte
   const earthRadius = 6371000;
   const orbitRadius = earthRadius + sat.altitudeKm * 1000;
   const incRad = Cesium.Math.toRadians(sat.inclinationDeg);
-  const angle = ((timeSec % sat.periodSec) / sat.periodSec) * Cesium.Math.TWO_PI;
+  
+  // Use speedMultiplier from data to vary relative speeds
+  const effectiveTime = timeSec * sat.speedMultiplier;
+  const angle = ((effectiveTime % sat.periodSec) / sat.periodSec) * Cesium.Math.TWO_PI;
 
   const x = orbitRadius * Math.cos(angle);
   const y = orbitRadius * Math.sin(angle) * Math.cos(incRad);
@@ -46,12 +49,22 @@ function calculateSatPosition(sat: SatelliteData, timeSec: number): Cesium.Carte
 
 interface CesiumViewerProps {
   hiddenSatellites: string[];
+  simulationSpeed: number;
+  showOrbits: boolean;
+  baseMapMode: "natural" | "grid";
 }
 
-export default function CesiumViewer({ hiddenSatellites }: CesiumViewerProps) {
+export default function CesiumViewer({ hiddenSatellites, simulationSpeed, showOrbits, baseMapMode }: CesiumViewerProps) {
   const viewerRef = useRef<CesiumComponentRef<Cesium.Viewer>>(null);
+  const speedRef = useRef(simulationSpeed);
+  
   const [mounted, setMounted] = useState(false);
   const [elapsedTime, setElapsedTime] = useState(0);
+
+  // Keep ref in sync with prop for interval
+  useEffect(() => {
+    speedRef.current = simulationSpeed;
+  }, [simulationSpeed]);
 
   useEffect(() => {
     // 100% Offline: Clear Cesium Ion token to guarantee zero external requests
@@ -59,7 +72,8 @@ export default function CesiumViewer({ hiddenSatellites }: CesiumViewerProps) {
     setMounted(true);
 
     const interval = setInterval(() => {
-      setElapsedTime((prev) => prev + 0.5);
+      // Multiply time step by simulation speed
+      setElapsedTime((prev) => prev + (0.5 * speedRef.current));
     }, 100);
 
     return () => clearInterval(interval);
@@ -73,7 +87,14 @@ export default function CesiumViewer({ hiddenSatellites }: CesiumViewerProps) {
     );
   }, []);
 
-
+  const gridProvider = useMemo(() => {
+    if (typeof window === "undefined") return undefined;
+    return new Cesium.GridImageryProvider({
+      backgroundColor: Cesium.Color.fromCssColorString("#090d16"),
+      color: Cesium.Color.fromCssColorString("#0284c7").withAlpha(0.6),
+      cells: 8,
+    });
+  }, []);
 
   // Compute satellite orbit paths
   const orbitPaths = useMemo(() => {
@@ -84,7 +105,7 @@ export default function CesiumViewer({ hiddenSatellites }: CesiumViewerProps) {
     }));
   }, []);
 
-  if (!mounted || !naturalEarthProvider) {
+  if (!mounted || !naturalEarthProvider || !gridProvider) {
     return (
       <Box
         sx={{
@@ -133,11 +154,17 @@ export default function CesiumViewer({ hiddenSatellites }: CesiumViewerProps) {
           maximumScreenSpaceError={1.5}
         />
 
-        <ImageryLayer
-          imageryProvider={naturalEarthProvider}
-          brightness={1.1}
-          contrast={1.1}
-        />
+        {/* Selected Base Map Layer */}
+        {baseMapMode === "natural" && (
+          <ImageryLayer
+            imageryProvider={naturalEarthProvider}
+            brightness={1.1}
+            contrast={1.1}
+          />
+        )}
+        {baseMapMode === "grid" && (
+          <ImageryLayer imageryProvider={gridProvider} />
+        )}
 
         {/* Orbits and Satellites */}
         {visibleSats.map((sat) => {
@@ -145,14 +172,16 @@ export default function CesiumViewer({ hiddenSatellites }: CesiumViewerProps) {
           return (
             <React.Fragment key={sat.id}>
               {/* Orbit Path */}
-              <Entity name={`${sat.name} Orbit`}>
-                <PolylineGraphics
-                  positions={sat.path}
-                  width={1.5}
-                  material={sat.cesiumColor.withAlpha(0.7)}
-                  arcType={Cesium.ArcType.NONE}
-                />
-              </Entity>
+              {showOrbits && (
+                <Entity name={`${sat.name} Orbit`}>
+                  <PolylineGraphics
+                    positions={sat.path}
+                    width={1.5}
+                    material={sat.cesiumColor.withAlpha(0.7)}
+                    arcType={Cesium.ArcType.NONE}
+                  />
+                </Entity>
+              )}
 
               {/* Satellite Icon & Label */}
               <Entity name={sat.name} position={currentPos}>

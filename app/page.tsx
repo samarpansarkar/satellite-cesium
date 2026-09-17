@@ -19,17 +19,28 @@ import {
   CardContent,
   CardHeader,
   Divider,
+  Slider,
+  Switch,
+  FormControlLabel,
+  ToggleButton,
+  ToggleButtonGroup,
 } from "@mui/material";
 import MenuIcon from "@mui/icons-material/Menu";
 import InfoIcon from "@mui/icons-material/Info";
 import CloseIcon from "@mui/icons-material/Close";
+import SpeedIcon from "@mui/icons-material/Speed";
 
-const DRAWER_WIDTH = 300;
+const DRAWER_WIDTH = 340;
 
 export default function Home() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [hiddenSatellites, setHiddenSatellites] = useState<string[]>([]);
   const [selectedSatInfo, setSelectedSatInfo] = useState<SatelliteData | null>(null);
+
+  // New Global Controls
+  const [simulationSpeed, setSimulationSpeed] = useState<number>(1);
+  const [showOrbits, setShowOrbits] = useState<boolean>(true);
+  const [baseMapMode, setBaseMapMode] = useState<"natural" | "grid">("natural");
 
   const handleDrawerToggle = () => {
     setDrawerOpen(!drawerOpen);
@@ -47,6 +58,15 @@ export default function Home() {
 
   const handleCloseInfo = () => {
     setSelectedSatInfo(null);
+  };
+
+  const handleBaseMapChange = (
+    event: React.MouseEvent<HTMLElement>,
+    newMode: "natural" | "grid" | null
+  ) => {
+    if (newMode !== null) {
+      setBaseMapMode(newMode);
+    }
   };
 
   return (
@@ -83,16 +103,71 @@ export default function Home() {
           },
         }}
       >
-        <Box sx={{ p: 2 }}>
-          <Typography variant="h6" sx={{ fontWeight: "bold" }} gutterBottom>
-            Satellites
+        {/* Global Controls Section */}
+        <Box sx={{ p: 2.5, bgcolor: "background.paper", borderBottom: "1px solid", borderColor: "divider" }}>
+          <Typography variant="subtitle1" sx={{ fontWeight: "bold", mb: 2, display: "flex", alignItems: "center", gap: 1 }}>
+            <SpeedIcon fontSize="small" /> Global Controls
           </Typography>
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-            Toggle visibility and view details.
+          
+          <Typography variant="body2" color="text.secondary" gutterBottom>
+            Simulation Speed: {simulationSpeed}x
+          </Typography>
+          <Slider
+            value={simulationSpeed}
+            onChange={(e, newValue) => setSimulationSpeed(newValue as number)}
+            step={0.5}
+            marks
+            min={0}
+            max={10}
+            valueLabelDisplay="auto"
+            sx={{ mb: 2 }}
+          />
+
+          <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
+            <FormControlLabel
+              control={
+                <Switch
+                  checked={showOrbits}
+                  onChange={(e) => setShowOrbits(e.target.checked)}
+                  color="primary"
+                />
+              }
+              label={<Typography variant="body2">Show Orbit Paths</Typography>}
+            />
+
+            <Box>
+              <Typography variant="body2" color="text.secondary" gutterBottom>
+                Base Map Layer
+              </Typography>
+              <ToggleButtonGroup
+                value={baseMapMode}
+                exclusive
+                onChange={handleBaseMapChange}
+                aria-label="base map layer"
+                size="small"
+                fullWidth
+              >
+                <ToggleButton value="natural" aria-label="natural earth">
+                  Natural Earth
+                </ToggleButton>
+                <ToggleButton value="grid" aria-label="coordinate grid">
+                  Coord Grid
+                </ToggleButton>
+              </ToggleButtonGroup>
+            </Box>
+          </Box>
+        </Box>
+
+        {/* Satellites List Section */}
+        <Box sx={{ p: 2, pb: 0 }}>
+          <Typography variant="subtitle1" sx={{ fontWeight: "bold" }} gutterBottom>
+            Satellites ({OFFLINE_SATELLITES.length})
+          </Typography>
+          <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 1 }}>
+            Toggle visibility and view live telemetry.
           </Typography>
         </Box>
-        <Divider />
-        <List>
+        <List sx={{ pt: 0 }}>
           {OFFLINE_SATELLITES.map((sat) => {
             const isVisible = !hiddenSatellites.includes(sat.id);
             return (
@@ -128,7 +203,12 @@ export default function Home() {
 
       {/* Main Content Area */}
       <Box sx={{ flexGrow: 1, position: "relative", overflow: "hidden" }}>
-        <CesiumWrapper hiddenSatellites={hiddenSatellites} />
+        <CesiumWrapper 
+          hiddenSatellites={hiddenSatellites} 
+          simulationSpeed={simulationSpeed}
+          showOrbits={showOrbits}
+          baseMapMode={baseMapMode}
+        />
 
         {/* Top Right Info Panel */}
         {selectedSatInfo && (
@@ -137,10 +217,10 @@ export default function Home() {
               position: "absolute",
               top: 16,
               right: 16,
-              width: 300,
+              width: 320,
               zIndex: 10,
               bgcolor: "background.paper",
-              boxShadow: 3,
+              boxShadow: 6,
             }}
           >
             <CardHeader
@@ -159,7 +239,7 @@ export default function Home() {
             <Divider />
             <CardContent>
               <Typography variant="body2" color="text.secondary" gutterBottom>
-                <strong>Altitude:</strong> {selectedSatInfo.altitudeKm} km
+                <strong>Altitude:</strong> {selectedSatInfo.altitudeKm.toLocaleString()} km
               </Typography>
               <Typography variant="body2" color="text.secondary" gutterBottom>
                 <strong>Inclination:</strong> {selectedSatInfo.inclinationDeg}&deg;
