@@ -40,7 +40,7 @@ export default function Home() {
   // New Global Controls
   const [simulationSpeed, setSimulationSpeed] = useState<number>(1);
   const [showOrbits, setShowOrbits] = useState<boolean>(true);
-  const [baseMapMode, setBaseMapMode] = useState<"natural" | "grid">("natural");
+  const [baseMapMode, setBaseMapMode] = useState<"natural" | "grid">("grid");
 
   const handleDrawerToggle = () => {
     setDrawerOpen(!drawerOpen);
@@ -103,61 +103,6 @@ export default function Home() {
           },
         }}
       >
-        {/* Global Controls Section */}
-        <Box sx={{ p: 2.5, bgcolor: "background.paper", borderBottom: "1px solid", borderColor: "divider" }}>
-          <Typography variant="subtitle1" sx={{ fontWeight: "bold", mb: 2, display: "flex", alignItems: "center", gap: 1 }}>
-            <SpeedIcon fontSize="small" /> Global Controls
-          </Typography>
-          
-          <Typography variant="body2" color="text.secondary" gutterBottom>
-            Simulation Speed: {simulationSpeed}x
-          </Typography>
-          <Slider
-            value={simulationSpeed}
-            onChange={(e, newValue) => setSimulationSpeed(newValue as number)}
-            step={0.5}
-            marks
-            min={0}
-            max={10}
-            valueLabelDisplay="auto"
-            sx={{ mb: 2 }}
-          />
-
-          <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
-            <FormControlLabel
-              control={
-                <Switch
-                  checked={showOrbits}
-                  onChange={(e) => setShowOrbits(e.target.checked)}
-                  color="primary"
-                />
-              }
-              label={<Typography variant="body2">Show Orbit Paths</Typography>}
-            />
-
-            <Box>
-              <Typography variant="body2" color="text.secondary" gutterBottom>
-                Base Map Layer
-              </Typography>
-              <ToggleButtonGroup
-                value={baseMapMode}
-                exclusive
-                onChange={handleBaseMapChange}
-                aria-label="base map layer"
-                size="small"
-                fullWidth
-              >
-                <ToggleButton value="natural" aria-label="natural earth">
-                  Natural Earth
-                </ToggleButton>
-                <ToggleButton value="grid" aria-label="coordinate grid">
-                  Coord Grid
-                </ToggleButton>
-              </ToggleButtonGroup>
-            </Box>
-          </Box>
-        </Box>
-
         {/* Satellites List Section */}
         <Box sx={{ p: 2, pb: 0 }}>
           <Typography variant="subtitle1" sx={{ fontWeight: "bold" }} gutterBottom>
@@ -202,57 +147,127 @@ export default function Home() {
       </Drawer>
 
       {/* Main Content Area */}
-      <Box sx={{ flexGrow: 1, position: "relative", overflow: "hidden" }}>
-        <CesiumWrapper 
-          hiddenSatellites={hiddenSatellites} 
-          simulationSpeed={simulationSpeed}
-          showOrbits={showOrbits}
-          baseMapMode={baseMapMode}
-        />
+      <Box sx={{ flexGrow: 1, position: "relative", overflow: "hidden", display: "flex", flexDirection: "column" }}>
+        
+        {/* 3D Map Container */}
+        <Box sx={{ flexGrow: 1, position: "relative", overflow: "hidden" }}>
+          <CesiumWrapper 
+            hiddenSatellites={hiddenSatellites} 
+            simulationSpeed={simulationSpeed}
+            showOrbits={showOrbits}
+            baseMapMode={baseMapMode}
+          />
 
-        {/* Top Right Info Panel */}
-        {selectedSatInfo && (
-          <Card
-            sx={{
-              position: "absolute",
-              top: 16,
-              right: 16,
-              width: 320,
-              zIndex: 10,
-              bgcolor: "background.paper",
-              boxShadow: 6,
-            }}
-          >
-            <CardHeader
-              title={
-                <Typography variant="subtitle1" sx={{ fontWeight: "bold", color: selectedSatInfo.colorHex }}>
-                  {selectedSatInfo.name}
+          {/* Top Right Info Panel */}
+          {selectedSatInfo && (
+            <Card
+              sx={{
+                position: "absolute",
+                top: 16,
+                right: 16,
+                width: 320,
+                zIndex: 10,
+                bgcolor: "background.paper",
+                boxShadow: 6,
+              }}
+            >
+              <CardHeader
+                title={
+                  <Typography variant="subtitle1" sx={{ fontWeight: "bold", color: selectedSatInfo.colorHex }}>
+                    {selectedSatInfo.name}
+                  </Typography>
+                }
+                subheader={selectedSatInfo.type}
+                action={
+                  <IconButton aria-label="close" onClick={handleCloseInfo}>
+                    <CloseIcon />
+                  </IconButton>
+                }
+              />
+              <Divider />
+              <CardContent>
+                <Typography variant="body2" color="text.secondary" gutterBottom>
+                  <strong>Altitude:</strong> {selectedSatInfo.altitudeKm.toLocaleString()} km
                 </Typography>
-              }
-              subheader={selectedSatInfo.type}
-              action={
-                <IconButton aria-label="close" onClick={handleCloseInfo}>
-                  <CloseIcon />
-                </IconButton>
-              }
+                <Typography variant="body2" color="text.secondary" gutterBottom>
+                  <strong>Inclination:</strong> {selectedSatInfo.inclinationDeg}&deg;
+                </Typography>
+                <Typography variant="body2" color="text.secondary" gutterBottom>
+                  <strong>Orbital Period:</strong> {selectedSatInfo.periodSec} seconds
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  <strong>Speed Multiplier:</strong> {selectedSatInfo.speedMultiplier}x
+                </Typography>
+              </CardContent>
+            </Card>
+          )}
+        </Box>
+
+        {/* Footer Controls */}
+        <Box 
+          sx={{ 
+            height: 60, 
+            bgcolor: "background.paper", 
+            borderTop: "1px solid", 
+            borderColor: "divider",
+            display: "flex",
+            alignItems: "center",
+            px: 3,
+            gap: 4
+          }}
+        >
+          {/* Speed Control */}
+          <Box sx={{ display: "flex", alignItems: "center", width: 300, gap: 2 }}>
+            <SpeedIcon fontSize="small" color="action" />
+            <Slider
+              value={simulationSpeed}
+              onChange={(e, newValue) => setSimulationSpeed(newValue as number)}
+              step={0.5}
+              marks
+              min={0}
+              max={10}
+              size="small"
+              valueLabelDisplay="auto"
             />
-            <Divider />
-            <CardContent>
-              <Typography variant="body2" color="text.secondary" gutterBottom>
-                <strong>Altitude:</strong> {selectedSatInfo.altitudeKm.toLocaleString()} km
-              </Typography>
-              <Typography variant="body2" color="text.secondary" gutterBottom>
-                <strong>Inclination:</strong> {selectedSatInfo.inclinationDeg}&deg;
-              </Typography>
-              <Typography variant="body2" color="text.secondary" gutterBottom>
-                <strong>Orbital Period:</strong> {selectedSatInfo.periodSec} seconds
-              </Typography>
-              <Typography variant="body2" color="text.secondary">
-                <strong>Speed Multiplier:</strong> {selectedSatInfo.speedMultiplier}x
-              </Typography>
-            </CardContent>
-          </Card>
-        )}
+            <Typography variant="body2" color="text.secondary" sx={{ minWidth: 30, textAlign: "right" }}>
+              {simulationSpeed}x
+            </Typography>
+          </Box>
+
+          <Divider orientation="vertical" flexItem variant="middle" sx={{ my: 1.5 }} />
+
+          {/* Orbits Toggle */}
+          <FormControlLabel
+            control={
+              <Switch
+                checked={showOrbits}
+                onChange={(e) => setShowOrbits(e.target.checked)}
+                color="primary"
+                size="small"
+              />
+            }
+            label={<Typography variant="body2">Show Orbits</Typography>}
+            sx={{ m: 0 }}
+          />
+
+          <Divider orientation="vertical" flexItem variant="middle" sx={{ my: 1.5 }} />
+
+          {/* Map Layer Toggle */}
+          <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
+            <Typography variant="body2" color="text.secondary">
+              Map Layer:
+            </Typography>
+            <ToggleButtonGroup
+              value={baseMapMode}
+              exclusive
+              onChange={handleBaseMapChange}
+              size="small"
+            >
+              <ToggleButton value="natural">Earth</ToggleButton>
+              <ToggleButton value="grid">Grid</ToggleButton>
+            </ToggleButtonGroup>
+          </Box>
+        </Box>
       </Box>
     </Box>
   );
