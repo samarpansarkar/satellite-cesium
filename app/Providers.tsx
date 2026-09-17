@@ -7,14 +7,14 @@ const darkTheme = createTheme({
   palette: {
     mode: "dark",
     background: {
-      default: "#09090b",
-      paper: "#18181b",
+      default: "#0a192f", // Navy Blue
+      paper: "#112240",   // Lighter Navy Blue
     },
     primary: {
-      main: "#06b6d4", // Cyan 500
+      main: "#38bdf8", // Sky Blue
     },
     secondary: {
-      main: "#10b981", // Emerald 500
+      main: "#7dd3fc", // Light Sky Blue
     },
   },
   typography: {
