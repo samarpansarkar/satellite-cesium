@@ -191,13 +191,15 @@ export default function CesiumViewer({ hiddenSatellites, simulationSpeed, showOr
                 />
                 <LabelGraphics
                   text={sat.name}
-                  font="11px monospace"
+                  font="bold 14px sans-serif"
                   fillColor={Cesium.Color.WHITE}
-                  outlineColor={Cesium.Color.BLACK}
-                  outlineWidth={2}
-                  style={Cesium.LabelStyle.FILL_AND_OUTLINE}
-                  pixelOffset={new Cesium.Cartesian2(0, -14)}
+                  style={Cesium.LabelStyle.FILL}
+                  showBackground={true}
+                  backgroundColor={Cesium.Color.BLACK.withAlpha(0.6)}
+                  backgroundPadding={new Cesium.Cartesian2(7, 5)}
+                  pixelOffset={new Cesium.Cartesian2(0, -20)}
                   horizontalOrigin={Cesium.HorizontalOrigin.CENTER}
+                  disableDepthTestDistance={Number.POSITIVE_INFINITY}
                 />
               </Entity>
             </React.Fragment>
