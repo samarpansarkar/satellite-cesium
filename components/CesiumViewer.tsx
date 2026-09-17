@@ -59,7 +59,7 @@ export default function CesiumViewer({ hiddenSatellites, simulationSpeed, showOr
   const speedRef = useRef(simulationSpeed);
   
   const [mounted, setMounted] = useState(false);
-  const [elapsedTime, setElapsedTime] = useState(0);
+  const elapsedTimeRef = useRef(0);
 
   // Keep ref in sync with prop for interval
   useEffect(() => {
@@ -69,14 +69,26 @@ export default function CesiumViewer({ hiddenSatellites, simulationSpeed, showOr
   useEffect(() => {
     // 100% Offline: Clear Cesium Ion token to guarantee zero external requests
     Cesium.Ion.defaultAccessToken = "";
+    
+    // Set default home view to India, significantly zoomed out
+    Cesium.Camera.DEFAULT_VIEW_RECTANGLE = Cesium.Rectangle.fromDegrees(20.0, -40.0, 140.0, 60.0);
+
     setMounted(true);
 
-    const interval = setInterval(() => {
-      // Multiply time step by simulation speed
-      setElapsedTime((prev) => prev + (0.5 * speedRef.current));
-    }, 100);
+    let lastTime = performance.now();
+    let frameId: number;
 
-    return () => clearInterval(interval);
+    const tick = (time: number) => {
+      const deltaMs = time - lastTime;
+      lastTime = time;
+      // Update elapsed time based on real time delta and simulation speed
+      elapsedTimeRef.current += (deltaMs / 1000) * speedRef.current;
+      frameId = requestAnimationFrame(tick);
+    };
+
+    frameId = requestAnimationFrame(tick);
+
+    return () => cancelAnimationFrame(frameId);
   }, []);
 
   // Offline imagery providers
@@ -102,6 +114,8 @@ export default function CesiumViewer({ hiddenSatellites, simulationSpeed, showOr
       ...sat,
       path: generateOrbitPath(sat.altitudeKm, sat.inclinationDeg),
       cesiumColor: Cesium.Color.fromCssColorString(sat.colorHex),
+      // Create a single CallbackProperty per satellite to avoid recreating it on renders
+      positionProperty: new Cesium.CallbackProperty(() => calculateSatPosition(sat, elapsedTimeRef.current), false)
     }));
   }, []);
 
@@ -168,7 +182,6 @@ export default function CesiumViewer({ hiddenSatellites, simulationSpeed, showOr
 
         {/* Orbits and Satellites */}
         {visibleSats.map((sat) => {
-          const currentPos = calculateSatPosition(sat, elapsedTime);
           return (
             <React.Fragment key={sat.id}>
               {/* Orbit Path */}
@@ -184,7 +197,7 @@ export default function CesiumViewer({ hiddenSatellites, simulationSpeed, showOr
               )}
 
               {/* Satellite Icon & Label */}
-              <Entity name={sat.name} position={currentPos}>
+              <Entity name={sat.name} position={sat.positionProperty as unknown as Cesium.Cartesian3}>
                 <BillboardGraphics
                   image={SATELLITE_ICON}
                   scale={0.8}

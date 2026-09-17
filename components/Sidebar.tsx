@@ -1,5 +1,5 @@
 import React from 'react';
-import { Drawer, Box, Typography, List, ListItem, IconButton, ListItemIcon, Checkbox, ListItemText } from "@mui/material";
+import { Drawer, Box, Typography, List, ListItem, IconButton, ListItemIcon, Checkbox, ListItemText, Button } from "@mui/material";
 import InfoIcon from "@mui/icons-material/Info";
 import { OFFLINE_SATELLITES, SatelliteData } from "@/lib/satellites";
 
@@ -9,20 +9,22 @@ interface SidebarProps {
   hiddenSatellites: string[];
   onToggleSatellite: (id: string) => void;
   onOpenInfo: (sat: SatelliteData) => void;
+  onShowAll: () => void;
+  onHideAll: () => void;
 }
 
 const DRAWER_WIDTH = 340;
 
-export default function Sidebar({ open, onClose, hiddenSatellites, onToggleSatellite, onOpenInfo }: SidebarProps) {
+export default function Sidebar({ open, onClose, hiddenSatellites, onToggleSatellite, onOpenInfo, onShowAll, onHideAll }: SidebarProps) {
   return (
-    <Drawer 
-      anchor="left" 
-      open={open} 
-      onClose={onClose} 
-      sx={{ 
-        "& .MuiDrawer-paper": { 
-          width: DRAWER_WIDTH, 
-          boxSizing: "border-box", 
+    <Drawer
+      anchor="left"
+      open={open}
+      onClose={onClose}
+      sx={{
+        "& .MuiDrawer-paper": {
+          width: DRAWER_WIDTH,
+          boxSizing: "border-box",
           bgcolor: "background.default",
           /* Hide scrollbar for Chrome, Safari and Opera */
           '&::-webkit-scrollbar': {
@@ -31,35 +33,87 @@ export default function Sidebar({ open, onClose, hiddenSatellites, onToggleSatel
           /* Hide scrollbar for IE, Edge and Firefox */
           msOverflowStyle: 'none',
           scrollbarWidth: 'none',
-        } 
+        }
       }}
     >
       <Box sx={{ p: 3, pb: 2, bgcolor: "background.paper", borderBottom: "1px solid", borderColor: "divider" }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 1 }}>
-          <Box sx={{ width: 8, height: 24, borderRadius: 4, background: 'linear-gradient(to bottom, #38bdf8, #0ea5e9)' }} />
-          <Typography variant="h6" sx={{ fontWeight: 800 }}>Active Trackers</Typography>
-          <Typography variant="caption" sx={{ bgcolor: 'primary.main', color: '#fff', px: 1.5, py: 0.5, borderRadius: 4, fontWeight: 'bold', ml: 'auto' }}>
-            {OFFLINE_SATELLITES.length}
+        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 0.5 }}>
+          <Typography variant="h6" sx={{ fontWeight: 600 }}>
+            Satellites
+          </Typography>
+          <Typography variant="body2" color="text.secondary">
+            {OFFLINE_SATELLITES.length} Total
           </Typography>
         </Box>
-        <Typography variant="body2" color="text.secondary">Manage satellite visibility and telemetry overlays.</Typography>
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
+          Select satellites to display on map
+        </Typography>
+        <Box sx={{ display: 'flex', gap: 1 }}>
+          <Button size="small" variant="outlined" color="primary" onClick={onShowAll} fullWidth>
+            Show All
+          </Button>
+          <Button size="small" variant="outlined" color="warning" onClick={onHideAll} fullWidth>
+            Hide All
+          </Button>
+        </Box>
       </Box>
-      <List sx={{ p: 2, pt: 2 }}>
+
+      <List sx={{ p: 0 }}>
         {OFFLINE_SATELLITES.map((sat) => {
           const isVisible = !hiddenSatellites.includes(sat.id);
           return (
-            <ListItem key={sat.id} disablePadding sx={{ mb: 1.5 }} secondaryAction={
-              <IconButton edge="end" aria-label="info" onClick={() => onOpenInfo(sat)} sx={{ color: 'text.secondary', bgcolor: 'background.default', '&:hover': { color: sat.colorHex, bgcolor: 'background.paper' } }}>
-                <InfoIcon fontSize="small" />
-              </IconButton>
-            }>
-              <Box sx={{ display: 'flex', alignItems: 'center', width: '100%', pr: 6, p: 1.5, borderRadius: 2, bgcolor: 'background.paper', border: '1px solid', borderColor: 'divider', borderLeft: `4px solid ${sat.colorHex}`, transition: 'all 0.2s ease', boxShadow: '0 2px 8px rgba(0,0,0,0.1)', '&:hover': { borderColor: sat.colorHex, transform: 'translateY(-2px)', boxShadow: `0 4px 12px ${sat.colorHex}22` } }}>
+            <ListItem
+              key={sat.id}
+              disablePadding
+              divider
+              secondaryAction={
+                <IconButton
+                  edge="end"
+                  aria-label="info"
+                  onClick={() => onOpenInfo(sat)}
+                  size="small"
+                  sx={{ color: 'text.secondary' }}
+                >
+                  <InfoIcon fontSize="small" />
+                </IconButton>
+              }
+            >
+              <Box
+                sx={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  width: '100%',
+                  px: 2,
+                  py: 1,
+                  transition: 'background-color 0.2s',
+                  '&:hover': { bgcolor: 'action.hover' }
+                }}
+              >
                 <ListItemIcon sx={{ minWidth: 40 }}>
-                  <Checkbox edge="start" checked={isVisible} onChange={() => onToggleSatellite(sat.id)} sx={{ color: 'text.disabled', '&.Mui-checked': { color: sat.colorHex } }} />
+                  <Checkbox
+                    edge="start"
+                    checked={isVisible}
+                    onChange={() => onToggleSatellite(sat.id)}
+                    size="small"
+                    sx={{ color: 'text.disabled', '&.Mui-checked': { color: 'primary.main' } }}
+                  />
                 </ListItemIcon>
+
+                {/* Color Indicator Dot */}
+                <Box
+                  sx={{
+                    width: 10,
+                    height: 10,
+                    borderRadius: '50%',
+                    bgcolor: sat.colorHex,
+                    mr: 2,
+                    boxShadow: `0 0 4px ${sat.colorHex}80`
+                  }}
+                />
+
                 <ListItemText
-                  primary={<Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 0.5 }}>{sat.name}</Typography>}
-                  secondary={<Typography variant="caption" sx={{ color: sat.colorHex, bgcolor: `${sat.colorHex}15`, px: 1, py: 0.25, borderRadius: 1, fontWeight: 600, display: 'inline-block' }}>{sat.type.toUpperCase()}</Typography>}
+                  primary={<Typography variant="body2" sx={{ fontWeight: 500 }}>{sat.name}</Typography>}
+                  secondary={<Typography variant="caption" color="text.secondary">{sat.type}</Typography>}
                 />
               </Box>
             </ListItem>
