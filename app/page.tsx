@@ -10,7 +10,7 @@ import FooterControls from "@/components/FooterControls";
 import SatelliteInfoPanel from "@/components/SatelliteInfoPanel";
 
 export default function Home() {
-  const { satellites } = useSatellites();
+  const { satellites, updateSatellite } = useSatellites();
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [hiddenSatellites, setHiddenSatellites] = useState<string[]>([]);
   const [selectedSatInfo, setSelectedSatInfo] = useState<SatelliteData | null>(null);
@@ -43,6 +43,7 @@ export default function Home() {
         satellites={satellites}
         hiddenSatellites={hiddenSatellites} 
         onToggleSatellite={handleToggleSatellite} 
+        onUpdateSatellite={updateSatellite}
         onOpenInfo={setSelectedSatInfo} 
         onShowAll={handleShowAll}
         onHideAll={handleHideAll}

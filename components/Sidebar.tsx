@@ -1,6 +1,8 @@
-import React from 'react';
-import { Drawer, Box, Typography, List, ListItem, IconButton, ListItemIcon, Checkbox, ListItemText, Button } from "@mui/material";
+import React, { useState } from 'react';
+import { Drawer, Box, Typography, List, ListItem, IconButton, ListItemIcon, Checkbox, ListItemText, Button, Collapse, Switch, FormControlLabel } from "@mui/material";
 import InfoIcon from "@mui/icons-material/Info";
+import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
+import ExpandLessIcon from "@mui/icons-material/ExpandLess";
 import { OFFLINE_SATELLITES, SatelliteData } from "@/lib/satellites";
 
 interface SidebarProps {
@@ -9,6 +11,7 @@ interface SidebarProps {
   satellites?: SatelliteData[];
   hiddenSatellites: string[];
   onToggleSatellite: (id: string) => void;
+  onUpdateSatellite?: (id: string, updatedData: Partial<SatelliteData>) => void;
   onOpenInfo: (sat: SatelliteData) => void;
   onShowAll: () => void;
   onHideAll: () => void;
@@ -22,10 +25,16 @@ export default function Sidebar({
   satellites = OFFLINE_SATELLITES,
   hiddenSatellites,
   onToggleSatellite,
+  onUpdateSatellite,
   onOpenInfo,
   onShowAll,
   onHideAll,
 }: SidebarProps) {
+  const [expanded, setExpanded] = useState<Record<string, boolean>>({});
+
+  const toggleExpand = (id: string) => {
+    setExpanded(prev => ({ ...prev, [id]: !prev[id] }));
+  };
   return (
     <Drawer
       anchor="left"
@@ -71,21 +80,33 @@ export default function Sidebar({
       <List sx={{ p: 0 }}>
         {satellites.map((sat) => {
           const isVisible = !hiddenSatellites.includes(sat.id);
+          const isExpanded = !!expanded[sat.id];
           return (
+            <React.Fragment key={sat.id}>
             <ListItem
-              key={sat.id}
               disablePadding
               divider
               secondaryAction={
-                <IconButton
-                  edge="end"
-                  aria-label="info"
-                  onClick={() => onOpenInfo(sat)}
-                  size="small"
-                  sx={{ color: 'text.secondary' }}
-                >
-                  <InfoIcon fontSize="small" />
-                </IconButton>
+                <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                  <IconButton
+                    edge="end"
+                    aria-label="info"
+                    onClick={() => onOpenInfo(sat)}
+                    size="small"
+                    sx={{ color: 'text.secondary', mr: 0.5 }}
+                  >
+                    <InfoIcon fontSize="small" />
+                  </IconButton>
+                  <IconButton
+                    edge="end"
+                    aria-label="expand"
+                    onClick={() => toggleExpand(sat.id)}
+                    size="small"
+                    sx={{ color: 'text.secondary' }}
+                  >
+                    {isExpanded ? <ExpandLessIcon fontSize="small" /> : <ExpandMoreIcon fontSize="small" />}
+                  </IconButton>
+                </Box>
               }
             >
               <Box
@@ -127,6 +148,26 @@ export default function Sidebar({
                 />
               </Box>
             </ListItem>
+            <Collapse in={isExpanded} timeout="auto" unmountOnExit>
+              <Box sx={{ pl: 7, pr: 2, py: 1.5, display: 'flex', flexDirection: 'column', gap: 0.5, bgcolor: 'action.hover', borderBottom: '1px solid', borderColor: 'divider' }}>
+                <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600, mb: 0.5, letterSpacing: 0.5 }}>
+                  SYSTEMS
+                </Typography>
+                <FormControlLabel
+                  control={<Switch size="small" checked={!!sat.camera} onChange={(e) => onUpdateSatellite?.(sat.id, { camera: e.target.checked })} />}
+                  label={<Typography variant="body2">Camera</Typography>}
+                />
+                <FormControlLabel
+                  control={<Switch size="small" checked={!!sat.sensor} onChange={(e) => onUpdateSatellite?.(sat.id, { sensor: e.target.checked })} />}
+                  label={<Typography variant="body2">Sensor</Typography>}
+                />
+                <FormControlLabel
+                  control={<Switch size="small" checked={!!sat.communication} onChange={(e) => onUpdateSatellite?.(sat.id, { communication: e.target.checked })} />}
+                  label={<Typography variant="body2">Communication</Typography>}
+                />
+              </Box>
+            </Collapse>
+            </React.Fragment>
           );
         })}
       </List>
