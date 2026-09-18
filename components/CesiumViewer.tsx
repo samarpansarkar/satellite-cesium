@@ -1,18 +1,26 @@
 "use client";
 
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef } from "react";
 import { Viewer, ImageryLayer, Entity, PolylineGraphics, BillboardGraphics, LabelGraphics, Scene, Globe, type CesiumComponentRef } from "resium";
 import * as Cesium from "cesium";
 import "cesium/Build/Cesium/Widgets/widgets.css";
 import { OFFLINE_SATELLITES, SatelliteData } from "@/lib/satellites";
 import { Box, CircularProgress, Typography } from "@mui/material";
 
-// Configure Cesium asset base path to point to /cesium in public folder
+// Configure Cesium asset base path to point to /cesium in public folder and clear Ion tokens
 if (typeof window !== "undefined") {
   (window as unknown as { CESIUM_BASE_URL: string }).CESIUM_BASE_URL = "/cesium";
+  Cesium.Ion.defaultAccessToken = "";
+  Cesium.Camera.DEFAULT_VIEW_RECTANGLE = Cesium.Rectangle.fromDegrees(20.0, -40.0, 140.0, 60.0);
 }
 
 const SATELLITE_ICON = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='white'%3E%3Cpath d='M21,11H18V7h-2.59l-1.2-1.2a1,1,0,0,0-1.42,0L10,8.59,8.59,10a1,1,0,0,0,0,1.42L9.79,12.6,7,15.4V19H3.4l-1.1,1.1a1,1,0,0,0,0,1.41,1,1,0,0,0,1.41,0L4.8,20.4H8.4V16.8l2.8-2.8,1.2,1.2a1,1,0,0,0,1.42,0l4.2-4.2a1,1,0,0,0,0-1.42L16.8,8.4H21a1,1,0,0,0,0-2Z'/%3E%3C/svg%3E";
+
+// Dedicated animation clock container for CesiumJS render loop
+const animClock = {
+  elapsedTime: 0,
+  speed: 1,
+};
 
 // Generate orbit trajectory points for a given altitude and inclination
 function generateOrbitPath(altitudeKm: number, inclinationDeg: number, samples = 120): Cesium.Cartesian3[] {
@@ -56,25 +64,13 @@ interface CesiumViewerProps {
 
 export default function CesiumViewer({ hiddenSatellites, simulationSpeed, showOrbits, baseMapMode }: CesiumViewerProps) {
   const viewerRef = useRef<CesiumComponentRef<Cesium.Viewer>>(null);
-  const speedRef = useRef(simulationSpeed);
-  
-  const [mounted, setMounted] = useState(false);
-  const elapsedTimeRef = useRef(0);
 
-  // Keep ref in sync with prop for interval
+  // Keep animation clock speed in sync with prop
   useEffect(() => {
-    speedRef.current = simulationSpeed;
+    animClock.speed = simulationSpeed;
   }, [simulationSpeed]);
 
   useEffect(() => {
-    // 100% Offline: Clear Cesium Ion token to guarantee zero external requests
-    Cesium.Ion.defaultAccessToken = "";
-    
-    // Set default home view to India, significantly zoomed out
-    Cesium.Camera.DEFAULT_VIEW_RECTANGLE = Cesium.Rectangle.fromDegrees(20.0, -40.0, 140.0, 60.0);
-
-    setMounted(true);
-
     let lastTime = performance.now();
     let frameId: number;
 
@@ -82,7 +78,7 @@ export default function CesiumViewer({ hiddenSatellites, simulationSpeed, showOr
       const deltaMs = time - lastTime;
       lastTime = time;
       // Update elapsed time based on real time delta and simulation speed
-      elapsedTimeRef.current += (deltaMs / 1000) * speedRef.current;
+      animClock.elapsedTime += (deltaMs / 1000) * animClock.speed;
       frameId = requestAnimationFrame(tick);
     };
 
@@ -108,18 +104,18 @@ export default function CesiumViewer({ hiddenSatellites, simulationSpeed, showOr
     });
   }, []);
 
-  // Compute satellite orbit paths
+  // Compute satellite orbit paths once
   const orbitPaths = useMemo(() => {
     return OFFLINE_SATELLITES.map((sat) => ({
       ...sat,
       path: generateOrbitPath(sat.altitudeKm, sat.inclinationDeg),
       cesiumColor: Cesium.Color.fromCssColorString(sat.colorHex),
-      // Create a single CallbackProperty per satellite to avoid recreating it on renders
-      positionProperty: new Cesium.CallbackProperty(() => calculateSatPosition(sat, elapsedTimeRef.current), false)
+      // CallbackProperty queries the out-of-band animation clock directly
+      positionProperty: new Cesium.CallbackProperty(() => calculateSatPosition(sat, animClock.elapsedTime), false)
     }));
   }, []);
 
-  if (!mounted || !naturalEarthProvider || !gridProvider) {
+  if (!naturalEarthProvider || !gridProvider) {
     return (
       <Box
         sx={{
