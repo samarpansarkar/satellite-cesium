@@ -1,3 +1,5 @@
+import { useState, useEffect, useCallback } from "react";
+
 export interface SatelliteData {
   id: string;
   name: string;
@@ -33,3 +35,130 @@ export const OFFLINE_SATELLITES: SatelliteData[] = [
   { id: "inmarsat-5", name: "Inmarsat-5 F4", type: "Communications", altitudeKm: 35786, inclinationDeg: 0.1, colorHex: "#6366f1", speedMultiplier: 0.1, periodSec: 1440 },
   { id: "echostar-21", name: "EchoStar 21", type: "Communications", altitudeKm: 35786, inclinationDeg: 0.0, colorHex: "#4f46e5", speedMultiplier: 0.1, periodSec: 1440 },
 ];
+
+export const SATELLITE_STORAGE_KEY = "satellite_cesium_fleet_v1";
+export const SATELLITE_UPDATE_EVENT = "satellite_data_updated";
+
+export function getStoredSatellites(): SatelliteData[] {
+  if (typeof window === "undefined") {
+    return OFFLINE_SATELLITES;
+  }
+  try {
+    const raw = localStorage.getItem(SATELLITE_STORAGE_KEY);
+    if (!raw) {
+      localStorage.setItem(SATELLITE_STORAGE_KEY, JSON.stringify(OFFLINE_SATELLITES));
+      return OFFLINE_SATELLITES;
+    }
+    const parsed = JSON.parse(raw);
+    if (Array.isArray(parsed) && parsed.length > 0) {
+      return parsed;
+    }
+    return OFFLINE_SATELLITES;
+  } catch (err) {
+    console.error("Failed to load satellites from localStorage:", err);
+    return OFFLINE_SATELLITES;
+  }
+}
+
+export function saveStoredSatellites(satellites: SatelliteData[]): void {
+  if (typeof window === "undefined") return;
+  try {
+    localStorage.setItem(SATELLITE_STORAGE_KEY, JSON.stringify(satellites));
+    window.dispatchEvent(new CustomEvent(SATELLITE_UPDATE_EVENT, { detail: satellites }));
+  } catch (err) {
+    console.error("Failed to save satellites to localStorage:", err);
+  }
+}
+
+export function resetStoredSatellites(): SatelliteData[] {
+  saveStoredSatellites(OFFLINE_SATELLITES);
+  return OFFLINE_SATELLITES;
+}
+
+export function useSatellites() {
+  const [satellites, setSatellites] = useState<SatelliteData[]>(OFFLINE_SATELLITES);
+  const [isLoaded, setIsLoaded] = useState<boolean>(false);
+
+  const refresh = useCallback(() => {
+    const current = getStoredSatellites();
+    setSatellites(current);
+    setIsLoaded(true);
+  }, []);
+
+  useEffect(() => {
+    refresh();
+
+    const handleUpdate = () => {
+      refresh();
+    };
+
+    window.addEventListener(SATELLITE_UPDATE_EVENT, handleUpdate);
+    window.addEventListener("storage", handleUpdate);
+
+    return () => {
+      window.removeEventListener(SATELLITE_UPDATE_EVENT, handleUpdate);
+      window.removeEventListener("storage", handleUpdate);
+    };
+  }, [refresh]);
+
+  const addSatellite = useCallback((newSat: Omit<SatelliteData, "id"> & { id?: string }) => {
+    const current = getStoredSatellites();
+    const id = newSat.id && newSat.id.trim() ? newSat.id.trim().toLowerCase().replace(/\s+/g, "-") : `sat-${Date.now()}`;
+    const completeSat: SatelliteData = {
+      ...newSat,
+      id,
+    };
+    const updated = [completeSat, ...current];
+    saveStoredSatellites(updated);
+    setSatellites(updated);
+    return completeSat;
+  }, []);
+
+  const updateSatellite = useCallback((id: string, updatedData: Partial<SatelliteData>) => {
+    const current = getStoredSatellites();
+    const updated = current.map((sat) => (sat.id === id ? { ...sat, ...updatedData } : sat));
+    saveStoredSatellites(updated);
+    setSatellites(updated);
+  }, []);
+
+  const deleteSatellite = useCallback((id: string) => {
+    const current = getStoredSatellites();
+    const updated = current.filter((sat) => sat.id !== id);
+    saveStoredSatellites(updated);
+    setSatellites(updated);
+  }, []);
+
+  const duplicateSatellite = useCallback((id: string) => {
+    const current = getStoredSatellites();
+    const target = current.find((sat) => sat.id === id);
+    if (!target) return null;
+
+    const newId = `${target.id}-copy-${Date.now().toString().slice(-4)}`;
+    const duplicated: SatelliteData = {
+      ...target,
+      id: newId,
+      name: `${target.name} (Copy)`,
+    };
+    const targetIndex = current.findIndex((sat) => sat.id === id);
+    const updated = [...current];
+    updated.splice(targetIndex + 1, 0, duplicated);
+    saveStoredSatellites(updated);
+    setSatellites(updated);
+    return duplicated;
+  }, []);
+
+  const resetToDefaults = useCallback(() => {
+    const defaults = resetStoredSatellites();
+    setSatellites(defaults);
+  }, []);
+
+  return {
+    satellites,
+    isLoaded,
+    addSatellite,
+    updateSatellite,
+    deleteSatellite,
+    duplicateSatellite,
+    resetToDefaults,
+  };
+}

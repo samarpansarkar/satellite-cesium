@@ -56,13 +56,20 @@ function calculateSatPosition(sat: SatelliteData, timeSec: number): Cesium.Carte
 }
 
 interface CesiumViewerProps {
+  satellites?: SatelliteData[];
   hiddenSatellites: string[];
   simulationSpeed: number;
   showOrbits: boolean;
   baseMapMode: "natural" | "grid";
 }
 
-export default function CesiumViewer({ hiddenSatellites, simulationSpeed, showOrbits, baseMapMode }: CesiumViewerProps) {
+export default function CesiumViewer({
+  satellites = OFFLINE_SATELLITES,
+  hiddenSatellites,
+  simulationSpeed,
+  showOrbits,
+  baseMapMode,
+}: CesiumViewerProps) {
   const viewerRef = useRef<CesiumComponentRef<Cesium.Viewer>>(null);
 
   // Keep animation clock speed in sync with prop
@@ -104,16 +111,27 @@ export default function CesiumViewer({ hiddenSatellites, simulationSpeed, showOr
     });
   }, []);
 
-  // Compute satellite orbit paths once
+  // Compute satellite orbit paths
   const orbitPaths = useMemo(() => {
-    return OFFLINE_SATELLITES.map((sat) => ({
-      ...sat,
-      path: generateOrbitPath(sat.altitudeKm, sat.inclinationDeg),
-      cesiumColor: Cesium.Color.fromCssColorString(sat.colorHex),
-      // CallbackProperty queries the out-of-band animation clock directly
-      positionProperty: new Cesium.CallbackProperty(() => calculateSatPosition(sat, animClock.elapsedTime), false)
-    }));
-  }, []);
+    return satellites.map((sat) => {
+      let color = Cesium.Color.fromCssColorString("#38bdf8");
+      try {
+        if (sat.colorHex) {
+          color = Cesium.Color.fromCssColorString(sat.colorHex);
+        }
+      } catch {
+        color = Cesium.Color.fromCssColorString("#38bdf8");
+      }
+
+      return {
+        ...sat,
+        path: generateOrbitPath(sat.altitudeKm, sat.inclinationDeg),
+        cesiumColor: color,
+        // CallbackProperty queries the out-of-band animation clock directly
+        positionProperty: new Cesium.CallbackProperty(() => calculateSatPosition(sat, animClock.elapsedTime), false)
+      };
+    });
+  }, [satellites]);
 
   if (!naturalEarthProvider || !gridProvider) {
     return (

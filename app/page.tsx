@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import CesiumWrapper from "@/components/CesiumWrapper";
-import { SatelliteData, OFFLINE_SATELLITES } from "@/lib/satellites";
+import { SatelliteData, useSatellites } from "@/lib/satellites";
 import { Box } from "@mui/material";
 import Navbar from "@/components/Navbar";
 import Sidebar from "@/components/Sidebar";
@@ -10,10 +10,9 @@ import FooterControls from "@/components/FooterControls";
 import SatelliteInfoPanel from "@/components/SatelliteInfoPanel";
 
 export default function Home() {
+  const { satellites } = useSatellites();
   const [drawerOpen, setDrawerOpen] = useState(false);
-  const [hiddenSatellites, setHiddenSatellites] = useState<string[]>(
-    OFFLINE_SATELLITES.map((sat) => sat.id)
-  );
+  const [hiddenSatellites, setHiddenSatellites] = useState<string[]>([]);
   const [selectedSatInfo, setSelectedSatInfo] = useState<SatelliteData | null>(null);
 
   const [simulationSpeed, setSimulationSpeed] = useState<number>(1);
@@ -31,7 +30,7 @@ export default function Home() {
   };
 
   const handleHideAll = () => {
-    setHiddenSatellites(OFFLINE_SATELLITES.map((sat) => sat.id));
+    setHiddenSatellites(satellites.map((sat) => sat.id));
   };
 
   return (
@@ -41,6 +40,7 @@ export default function Home() {
       <Sidebar 
         open={drawerOpen} 
         onClose={() => setDrawerOpen(false)} 
+        satellites={satellites}
         hiddenSatellites={hiddenSatellites} 
         onToggleSatellite={handleToggleSatellite} 
         onOpenInfo={setSelectedSatInfo} 
@@ -53,6 +53,7 @@ export default function Home() {
         {/* 3D Map Container */}
         <Box sx={{ flexGrow: 1, position: "relative", overflow: "hidden" }}>
           <CesiumWrapper 
+            satellites={satellites}
             hiddenSatellites={hiddenSatellites} 
             simulationSpeed={simulationSpeed}
             showOrbits={showOrbits}

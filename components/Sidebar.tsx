@@ -6,6 +6,7 @@ import { OFFLINE_SATELLITES, SatelliteData } from "@/lib/satellites";
 interface SidebarProps {
   open: boolean;
   onClose: () => void;
+  satellites?: SatelliteData[];
   hiddenSatellites: string[];
   onToggleSatellite: (id: string) => void;
   onOpenInfo: (sat: SatelliteData) => void;
@@ -15,7 +16,16 @@ interface SidebarProps {
 
 const DRAWER_WIDTH = 340;
 
-export default function Sidebar({ open, onClose, hiddenSatellites, onToggleSatellite, onOpenInfo, onShowAll, onHideAll }: SidebarProps) {
+export default function Sidebar({
+  open,
+  onClose,
+  satellites = OFFLINE_SATELLITES,
+  hiddenSatellites,
+  onToggleSatellite,
+  onOpenInfo,
+  onShowAll,
+  onHideAll,
+}: SidebarProps) {
   return (
     <Drawer
       anchor="left"
@@ -42,7 +52,7 @@ export default function Sidebar({ open, onClose, hiddenSatellites, onToggleSatel
             Satellites
           </Typography>
           <Typography variant="body2" color="text.secondary">
-            {OFFLINE_SATELLITES.length} Total
+            {satellites.length} Total
           </Typography>
         </Box>
         <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
@@ -59,7 +69,7 @@ export default function Sidebar({ open, onClose, hiddenSatellites, onToggleSatel
       </Box>
 
       <List sx={{ p: 0 }}>
-        {OFFLINE_SATELLITES.map((sat) => {
+        {satellites.map((sat) => {
           const isVisible = !hiddenSatellites.includes(sat.id);
           return (
             <ListItem

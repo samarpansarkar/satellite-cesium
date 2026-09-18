@@ -2,6 +2,7 @@
 
 import dynamic from "next/dynamic";
 import { Box, CircularProgress, Typography } from "@mui/material";
+import { SatelliteData } from "@/lib/satellites";
 
 const CesiumViewer = dynamic(() => import("./CesiumViewer"), {
   ssr: false,
@@ -29,6 +30,7 @@ const CesiumViewer = dynamic(() => import("./CesiumViewer"), {
 });
 
 interface CesiumWrapperProps {
+  satellites?: SatelliteData[];
   hiddenSatellites: string[];
   simulationSpeed: number;
   showOrbits: boolean;
