@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useMemo, useRef } from "react";
-import { Viewer, ImageryLayer, Entity, PolylineGraphics, BillboardGraphics, LabelGraphics, Scene, Globe, type CesiumComponentRef } from "resium";
+import { Viewer, ImageryLayer, Entity, PolylineGraphics, BillboardGraphics, LabelGraphics, Scene, Globe, EllipseGraphics, type CesiumComponentRef } from "resium";
 import * as Cesium from "cesium";
 import "cesium/Build/Cesium/Widgets/widgets.css";
 import { OFFLINE_SATELLITES, SatelliteData } from "@/lib/satellites";
@@ -21,6 +21,9 @@ const animClock = {
   elapsedTime: 0,
   speed: 1,
 };
+
+const GROUND_STATION = Cesium.Cartesian3.fromDegrees(77.2090, 28.6139, 0); // Ground station for communications
+
 
 // Generate orbit trajectory points for a given altitude and inclination
 function generateOrbitPath(altitudeKm: number, inclinationDeg: number, samples = 120): Cesium.Cartesian3[] {
@@ -128,7 +131,42 @@ export default function CesiumViewer({
         path: generateOrbitPath(sat.altitudeKm, sat.inclinationDeg),
         cesiumColor: color,
         // CallbackProperty queries the out-of-band animation clock directly
-        positionProperty: new Cesium.CallbackProperty(() => calculateSatPosition(sat, animClock.elapsedTime), false)
+        positionProperty: new Cesium.CallbackProperty(() => calculateSatPosition(sat, animClock.elapsedTime), false),
+        subPositionProperty: new Cesium.CallbackProperty(() => {
+          const pos = calculateSatPosition(sat, animClock.elapsedTime);
+          const earthRadius = 6371000;
+          const mag = Cesium.Cartesian3.magnitude(pos);
+          return Cesium.Cartesian3.multiplyByScalar(pos, earthRadius / mag, new Cesium.Cartesian3());
+        }, false),
+        cameraBeamProperty: new Cesium.CallbackProperty(() => {
+          const pos = calculateSatPosition(sat, animClock.elapsedTime);
+          const earthRadius = 6371000;
+          const mag = Cesium.Cartesian3.magnitude(pos);
+          const subPos = Cesium.Cartesian3.multiplyByScalar(pos, earthRadius / mag, new Cesium.Cartesian3());
+          return [pos, subPos];
+        }, false),
+        commLinkProperty: new Cesium.CallbackProperty(() => {
+          const pos = calculateSatPosition(sat, animClock.elapsedTime);
+          return [pos, GROUND_STATION];
+        }, false),
+        commLinkShowProperty: new Cesium.CallbackProperty(() => {
+          const pos = calculateSatPosition(sat, animClock.elapsedTime);
+          const distance = Cesium.Cartesian3.distance(pos, GROUND_STATION);
+          
+          // Scientifically accurate line-of-sight check:
+          // Maximum visible distance to horizon from satellite = sqrt((R+h)^2 - R^2)
+          const R = 6371000; // Earth radius in meters
+          const h = sat.altitudeKm * 1000; // Satellite altitude in meters
+          const maxVisibleDist = Math.sqrt(Math.pow(R + h, 2) - Math.pow(R, 2));
+          
+          // Add a tiny buffer (e.g., 500km) to simulate signal refraction or atmospheric limits
+          return distance <= (maxVisibleDist + 500000);
+        }, false),
+        sensorRadiusProperty: new Cesium.CallbackProperty(() => {
+          // Animate from 0 to 1200km over 2 simulated seconds
+          const cycle = (animClock.elapsedTime % 2.0) / 2.0;
+          return cycle * 1200000; 
+        }, false)
       };
     });
   }, [satellites]);
@@ -228,6 +266,63 @@ export default function CesiumViewer({
                   horizontalOrigin={Cesium.HorizontalOrigin.CENTER}
                 />
               </Entity>
+
+              {/* Sensor Radar Pulse Effect */}
+              {sat.sensor && (
+                <Entity position={sat.positionProperty as unknown as Cesium.Cartesian3}>
+                  <EllipseGraphics
+                    semiMajorAxis={sat.sensorRadiusProperty as unknown as number}
+                    semiMinorAxis={sat.sensorRadiusProperty as unknown as number}
+                    material={new Cesium.ColorMaterialProperty(Cesium.Color.ORANGE.withAlpha(0.2))}
+                    outline={true}
+                    outlineColor={Cesium.Color.ORANGE.withAlpha(1.0)}
+                    outlineWidth={4}
+                  />
+                </Entity>
+              )}
+
+              {/* Camera Scanner Cone Effect */}
+              {sat.camera && (
+                <>
+                  <Entity position={sat.subPositionProperty as unknown as Cesium.Cartesian3}>
+                    <EllipseGraphics
+                      semiMajorAxis={400000}
+                      semiMinorAxis={400000}
+                      material={Cesium.Color.CYAN.withAlpha(0.5)}
+                      outline={true}
+                      outlineColor={Cesium.Color.CYAN.withAlpha(0.9)}
+                      outlineWidth={3}
+                    />
+                  </Entity>
+                  <Entity>
+                    <PolylineGraphics
+                      positions={sat.cameraBeamProperty as unknown as Cesium.Cartesian3[]}
+                      width={4}
+                      arcType={Cesium.ArcType.NONE}
+                      material={new Cesium.PolylineDashMaterialProperty({
+                        color: Cesium.Color.CYAN.withAlpha(0.8),
+                        dashLength: 40.0,
+                      })}
+                    />
+                  </Entity>
+                </>
+              )}
+
+              {/* Communication Laser Link Effect */}
+              {sat.communication && (
+                <Entity>
+                  <PolylineGraphics
+                    show={sat.commLinkShowProperty as unknown as Cesium.Property}
+                    positions={sat.commLinkProperty as unknown as Cesium.Cartesian3[]}
+                    width={3}
+                    arcType={Cesium.ArcType.NONE}
+                    material={new Cesium.PolylineGlowMaterialProperty({
+                      glowPower: 0.25,
+                      color: Cesium.Color.MAGENTA,
+                    })}
+                  />
+                </Entity>
+              )}
             </React.Fragment>
           );
         })}
