@@ -208,7 +208,6 @@ export default function CesiumViewer({ hiddenSatellites, simulationSpeed, showOr
                   backgroundPadding={new Cesium.Cartesian2(7, 5)}
                   pixelOffset={new Cesium.Cartesian2(0, -20)}
                   horizontalOrigin={Cesium.HorizontalOrigin.CENTER}
-                  disableDepthTestDistance={Number.POSITIVE_INFINITY}
                 />
               </Entity>
             </React.Fragment>
