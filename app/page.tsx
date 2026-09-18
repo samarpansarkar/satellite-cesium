@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import CesiumWrapper from "@/components/CesiumWrapper";
 import { SatelliteData, useSatellites } from "@/lib/satellites";
 import { Box } from "@mui/material";
@@ -10,10 +10,19 @@ import FooterControls from "@/components/FooterControls";
 import SatelliteInfoPanel from "@/components/SatelliteInfoPanel";
 
 export default function Home() {
-  const { satellites, updateSatellite } = useSatellites();
+  const { satellites, updateSatellite, isLoaded } = useSatellites();
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [hiddenSatellites, setHiddenSatellites] = useState<string[]>([]);
+  const [hasInitializedHidden, setHasInitializedHidden] = useState(false);
   const [selectedSatInfo, setSelectedSatInfo] = useState<SatelliteData | null>(null);
+
+  // Initialize hiddenSatellites to hide all satellites on first load
+  useEffect(() => {
+    if (isLoaded && !hasInitializedHidden && satellites.length > 0) {
+      setHiddenSatellites(satellites.map((sat) => sat.id));
+      setHasInitializedHidden(true);
+    }
+  }, [isLoaded, hasInitializedHidden, satellites]);
 
   const [simulationSpeed, setSimulationSpeed] = useState<number>(1);
   const [showOrbits, setShowOrbits] = useState<boolean>(true);

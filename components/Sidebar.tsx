@@ -153,18 +153,35 @@ export default function Sidebar({
                 <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600, mb: 0.5, letterSpacing: 0.5 }}>
                   SYSTEMS
                 </Typography>
-                <FormControlLabel
-                  control={<Switch size="small" checked={!!sat.camera} onChange={(e) => onUpdateSatellite?.(sat.id, { camera: e.target.checked })} />}
-                  label={<Typography variant="body2">Camera</Typography>}
-                />
-                <FormControlLabel
-                  control={<Switch size="small" checked={!!sat.sensor} onChange={(e) => onUpdateSatellite?.(sat.id, { sensor: e.target.checked })} />}
-                  label={<Typography variant="body2">Sensor</Typography>}
-                />
-                <FormControlLabel
-                  control={<Switch size="small" checked={!!sat.communication} onChange={(e) => onUpdateSatellite?.(sat.id, { communication: e.target.checked })} />}
-                  label={<Typography variant="body2">Communication</Typography>}
-                />
+                {(!sat.cameras?.length && !sat.sensors?.length && !sat.communications?.length) ? (
+                  <Typography variant="body2" color="text.secondary" sx={{ fontStyle: 'italic', pl: 1, py: 1 }}>
+                    No systems installed
+                  </Typography>
+                ) : (
+                  <>
+                    {sat.cameras?.map(cam => (
+                      <FormControlLabel
+                        key={cam.id}
+                        control={<Switch size="small" checked={cam.active} onChange={(e) => onUpdateSatellite?.(sat.id, { cameras: sat.cameras.map(c => c.id === cam.id ? { ...c, active: e.target.checked } : c) })} />}
+                        label={<Typography variant="body2" sx={{ color: cam.colorHex || 'text.primary' }}>[CAM] {cam.name}</Typography>}
+                      />
+                    ))}
+                    {sat.sensors?.map(sens => (
+                      <FormControlLabel
+                        key={sens.id}
+                        control={<Switch size="small" checked={sens.active} onChange={(e) => onUpdateSatellite?.(sat.id, { sensors: sat.sensors.map(s => s.id === sens.id ? { ...s, active: e.target.checked } : s) })} />}
+                        label={<Typography variant="body2" sx={{ color: sens.colorHex || 'text.primary' }}>[SNS] {sens.name}</Typography>}
+                      />
+                    ))}
+                    {sat.communications?.map(comm => (
+                      <FormControlLabel
+                        key={comm.id}
+                        control={<Switch size="small" checked={comm.active} onChange={(e) => onUpdateSatellite?.(sat.id, { communications: sat.communications.map(c => c.id === comm.id ? { ...c, active: e.target.checked } : c) })} />}
+                        label={<Typography variant="body2" sx={{ color: comm.colorHex || 'text.primary' }}>[COM] {comm.name}</Typography>}
+                      />
+                    ))}
+                  </>
+                )}
               </Box>
             </Collapse>
             </React.Fragment>
