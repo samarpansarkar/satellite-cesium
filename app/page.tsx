@@ -16,13 +16,29 @@ export default function Home() {
   const [hasInitializedHidden, setHasInitializedHidden] = useState(false);
   const [selectedSatInfo, setSelectedSatInfo] = useState<SatelliteData | null>(null);
 
-  // Initialize hiddenSatellites to hide all satellites on first load
+  // Initialize hiddenSatellites to hide all satellites on first load and turn off attachments
   useEffect(() => {
     if (isLoaded && !hasInitializedHidden && satellites.length > 0) {
       setHiddenSatellites(satellites.map((sat) => sat.id));
       setHasInitializedHidden(true);
+      
+      // Turn off all attachments by default on load
+      satellites.forEach((sat) => {
+        const hasActiveAttachment = 
+          sat.cameras.some((c) => c.active) || 
+          sat.sensors.some((s) => s.active) || 
+          sat.communications.some((c) => c.active);
+          
+        if (hasActiveAttachment) {
+          updateSatellite(sat.id, {
+            cameras: sat.cameras.map((c) => ({ ...c, active: false })),
+            sensors: sat.sensors.map((s) => ({ ...s, active: false })),
+            communications: sat.communications.map((c) => ({ ...c, active: false })),
+          });
+        }
+      });
     }
-  }, [isLoaded, hasInitializedHidden, satellites]);
+  }, [isLoaded, hasInitializedHidden, satellites, updateSatellite]);
 
   const [simulationSpeed, setSimulationSpeed] = useState<number>(1);
   const [showOrbits, setShowOrbits] = useState<boolean>(true);

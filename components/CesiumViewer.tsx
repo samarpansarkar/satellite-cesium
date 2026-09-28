@@ -4,7 +4,7 @@ import React, { useEffect, useMemo, useRef } from "react";
 import { Viewer, ImageryLayer, Entity, PolylineGraphics, BillboardGraphics, LabelGraphics, Scene, Globe, EllipseGraphics, type CesiumComponentRef } from "resium";
 import * as Cesium from "cesium";
 import "cesium/Build/Cesium/Widgets/widgets.css";
-import { OFFLINE_SATELLITES, SatelliteData } from "@/lib/satellites";
+import { SatelliteData } from "@/lib/satellites";
 import { Box, CircularProgress, Typography } from "@mui/material";
 
 // Configure Cesium asset base path to point to /cesium in public folder and clear Ion tokens
@@ -47,7 +47,7 @@ function calculateSatPosition(sat: SatelliteData, timeSec: number): Cesium.Carte
   const earthRadius = 6371000;
   const orbitRadius = earthRadius + sat.altitudeKm * 1000;
   const incRad = Cesium.Math.toRadians(sat.inclinationDeg);
-  
+
   // Use speedMultiplier from data to vary relative speeds
   const effectiveTime = timeSec * sat.speedMultiplier;
   const angle = ((effectiveTime % sat.periodSec) / sat.periodSec) * Cesium.Math.TWO_PI;
@@ -67,7 +67,7 @@ interface CesiumViewerProps {
 }
 
 export default function CesiumViewer({
-  satellites = OFFLINE_SATELLITES,
+  satellites = [],
   hiddenSatellites,
   simulationSpeed,
   showOrbits,
@@ -114,77 +114,79 @@ export default function CesiumViewer({
     });
   }, []);
 
-  // Compute satellite orbit paths
+  const satellitesRef = useRef(satellites);
+  satellitesRef.current = satellites;
+
+  const satIds = satellites.map(s => s.id).join(',');
+
+  // Compute satellite orbit paths and properties only when the list of satellites changes
   const orbitPaths = useMemo(() => {
-    return satellites.map((sat) => {
-      let color = Cesium.Color.fromCssColorString("#38bdf8");
-      try {
-        if (sat.colorHex) {
-          color = Cesium.Color.fromCssColorString(sat.colorHex);
-        }
-      } catch {
-        color = Cesium.Color.fromCssColorString("#38bdf8");
-      }
+    return satellites.map((initialSat) => {
+      const color = Cesium.Color.fromCssColorString("#38bdf8");
+
+      const getSat = () => satellitesRef.current.find(s => s.id === initialSat.id) || initialSat;
 
       return {
-        ...sat,
-        path: generateOrbitPath(sat.altitudeKm, sat.inclinationDeg),
+        id: initialSat.id, // Need ID for React keys and filtering
+        name: initialSat.name,
+        path: generateOrbitPath(initialSat.altitudeKm, initialSat.inclinationDeg),
         cesiumColor: color,
         // CallbackProperty queries the out-of-band animation clock directly
-        positionProperty: new Cesium.CallbackProperty(() => calculateSatPosition(sat, animClock.elapsedTime), false),
+        positionProperty: new Cesium.CallbackProperty(() => calculateSatPosition(getSat(), animClock.elapsedTime), false),
         subPositionProperty: new Cesium.CallbackProperty(() => {
-          const pos = calculateSatPosition(sat, animClock.elapsedTime);
+          const pos = calculateSatPosition(getSat(), animClock.elapsedTime);
           const earthRadius = 6371000;
           const mag = Cesium.Cartesian3.magnitude(pos);
           return Cesium.Cartesian3.multiplyByScalar(pos, earthRadius / mag, new Cesium.Cartesian3());
         }, false),
-        
-        camerasWithProps: sat.cameras?.map((cam, idx) => ({
+
+        camerasWithProps: initialSat.cameras?.map((cam, idx) => ({
           ...cam,
           beamProperty: new Cesium.CallbackProperty(() => {
-            const pos = calculateSatPosition(sat, animClock.elapsedTime);
+            const pos = calculateSatPosition(getSat(), animClock.elapsedTime);
             const earthRadius = 6371000;
             const mag = Cesium.Cartesian3.magnitude(pos);
             const subPos = Cesium.Cartesian3.multiplyByScalar(pos, earthRadius / mag, new Cesium.Cartesian3());
-            // Add a slight offset for multiple cameras
             if (idx > 0) {
-               const offset = new Cesium.Cartesian3(idx * 50000, idx * 50000, 0);
-               Cesium.Cartesian3.add(subPos, offset, subPos);
+              const offset = new Cesium.Cartesian3(idx * 50000, idx * 50000, 0);
+              Cesium.Cartesian3.add(subPos, offset, subPos);
             }
             return [pos, subPos];
           }, false)
         })),
 
-        sensorsWithProps: sat.sensors?.map((sens, idx) => ({
+        // Removed expensive dynamic radiusProperty; using fixed radius for performance
+        sensorsWithProps: initialSat.sensors?.map((sens, idx) => ({
           ...sens,
-          radiusProperty: new Cesium.CallbackProperty(() => {
-            // Animate from 0 to 1200km over 2 simulated seconds, offset by idx
-            const cycle = ((animClock.elapsedTime + idx * 0.5) % 2.0) / 2.0;
-            return cycle * 1200000; 
-          }, false)
+          fixedRadius: 800000 + (idx * 50000)
         })),
 
-        commsWithProps: sat.communications?.map((comm, idx) => ({
+        commsWithProps: initialSat.communications?.map((comm, idx) => ({
           ...comm,
           linkProperty: new Cesium.CallbackProperty(() => {
-            const pos = calculateSatPosition(sat, animClock.elapsedTime);
-            const target = comm.targetStation ? Cesium.Cartesian3.fromDegrees(comm.targetStation[0], comm.targetStation[1], 0) : GROUND_STATION;
+            const currentSat = getSat();
+            const pos = calculateSatPosition(currentSat, animClock.elapsedTime);
+            // Retrieve latest comm config dynamically
+            const currentComm = currentSat.communications?.find(c => c.id === comm.id) || comm;
+            const target = currentComm.targetStation ? Cesium.Cartesian3.fromDegrees(currentComm.targetStation[0], currentComm.targetStation[1], 0) : GROUND_STATION;
             return [pos, target];
           }, false),
           linkShowProperty: new Cesium.CallbackProperty(() => {
-            const pos = calculateSatPosition(sat, animClock.elapsedTime);
-            const target = comm.targetStation ? Cesium.Cartesian3.fromDegrees(comm.targetStation[0], comm.targetStation[1], 0) : GROUND_STATION;
+            const currentSat = getSat();
+            const pos = calculateSatPosition(currentSat, animClock.elapsedTime);
+            const currentComm = currentSat.communications?.find(c => c.id === comm.id) || comm;
+            const target = currentComm.targetStation ? Cesium.Cartesian3.fromDegrees(currentComm.targetStation[0], currentComm.targetStation[1], 0) : GROUND_STATION;
             const distance = Cesium.Cartesian3.distance(pos, target);
-            
+
             const R = 6371000;
-            const h = sat.altitudeKm * 1000;
+            const h = currentSat.altitudeKm * 1000;
             const maxVisibleDist = Math.sqrt(Math.pow(R + h, 2) - Math.pow(R, 2));
             return distance <= (maxVisibleDist + 500000);
           }, false)
         }))
       };
     });
-  }, [satellites]);
+  }, [satIds]);
 
   if (!naturalEarthProvider || !gridProvider) {
     return (
@@ -247,30 +249,33 @@ export default function CesiumViewer({
           <ImageryLayer imageryProvider={gridProvider} />
         )}
 
-        {/* Orbits and Satellites */}
-        {visibleSats.map((sat) => {
+        {visibleSats.map((orbit) => {
+          // Look up active state dynamically from the original satellites array
+          const liveSat = satellites.find(s => s.id === orbit.id);
+          if (!liveSat) return null;
+
           return (
-            <React.Fragment key={sat.id}>
+            <React.Fragment key={orbit.id}>
               {/* Orbit Path */}
               {showOrbits && (
-                <Entity name={`${sat.name} Orbit`}>
+                <Entity name={`${orbit.name} Orbit`}>
                   <PolylineGraphics
-                    positions={sat.path}
+                    positions={orbit.path}
                     width={1.5}
-                    material={sat.cesiumColor.withAlpha(0.7)}
+                    material={orbit.cesiumColor.withAlpha(0.7)}
                     arcType={Cesium.ArcType.NONE}
                   />
                 </Entity>
               )}
 
               {/* Satellite Icon & Label */}
-              <Entity name={sat.name} position={sat.positionProperty as unknown as Cesium.Cartesian3}>
+              <Entity name={orbit.name} position={orbit.positionProperty as unknown as Cesium.Cartesian3}>
                 <BillboardGraphics
                   image={SATELLITE_ICON}
                   scale={0.8}
                 />
                 <LabelGraphics
-                  text={sat.name}
+                  text={orbit.name}
                   font="bold 14px sans-serif"
                   fillColor={Cesium.Color.WHITE}
                   style={Cesium.LabelStyle.FILL}
@@ -283,13 +288,16 @@ export default function CesiumViewer({
               </Entity>
 
               {/* Sensor Radar Pulse Effects */}
-              {sat.sensorsWithProps?.filter(s => s.active).map(sens => {
-                const color = sens.colorHex ? Cesium.Color.fromCssColorString(sens.colorHex) : Cesium.Color.ORANGE;
+              {orbit.sensorsWithProps?.map(sens => {
+                const liveSens = liveSat.sensors?.find(s => s.id === sens.id);
+                if (!liveSens || !liveSens.active) return null;
+                const color = Cesium.Color.ORANGE;
                 return (
-                  <Entity key={sens.id} position={sat.positionProperty as unknown as Cesium.Cartesian3}>
+                  <Entity key={sens.id} position={orbit.positionProperty as unknown as Cesium.Cartesian3}>
                     <EllipseGraphics
-                      semiMajorAxis={sens.radiusProperty as unknown as number}
-                      semiMinorAxis={sens.radiusProperty as unknown as number}
+                      height={0}
+                      semiMajorAxis={sens.fixedRadius}
+                      semiMinorAxis={sens.fixedRadius}
                       material={new Cesium.ColorMaterialProperty(color.withAlpha(0.2))}
                       outline={true}
                       outlineColor={color.withAlpha(1.0)}
@@ -300,12 +308,15 @@ export default function CesiumViewer({
               })}
 
               {/* Camera Scanner Cone Effects */}
-              {sat.camerasWithProps?.filter(c => c.active).map((cam, idx) => {
-                const color = cam.colorHex ? Cesium.Color.fromCssColorString(cam.colorHex) : Cesium.Color.CYAN;
+              {orbit.camerasWithProps?.map((cam, idx) => {
+                const liveCam = liveSat.cameras?.find(c => c.id === cam.id);
+                if (!liveCam || !liveCam.active) return null;
+                const color = Cesium.Color.CYAN;
                 return (
                   <React.Fragment key={cam.id}>
-                    <Entity position={sat.subPositionProperty as unknown as Cesium.Cartesian3}>
+                    <Entity position={orbit.subPositionProperty as unknown as Cesium.Cartesian3}>
                       <EllipseGraphics
+                        // height={0}
                         semiMajorAxis={400000 - (idx * 50000)} // slightly different sizes if multiple
                         semiMinorAxis={400000 - (idx * 50000)}
                         material={color.withAlpha(0.5)}
@@ -330,8 +341,10 @@ export default function CesiumViewer({
               })}
 
               {/* Communication Laser Link Effects */}
-              {sat.commsWithProps?.filter(c => c.active).map(comm => {
-                const color = comm.colorHex ? Cesium.Color.fromCssColorString(comm.colorHex) : Cesium.Color.MAGENTA;
+              {orbit.commsWithProps?.map(comm => {
+                const liveComm = liveSat.communications?.find(c => c.id === comm.id);
+                if (!liveComm || !liveComm.active) return null;
+                const color = Cesium.Color.MAGENTA;
                 return (
                   <Entity key={comm.id}>
                     <PolylineGraphics
@@ -350,6 +363,7 @@ export default function CesiumViewer({
             </React.Fragment>
           );
         })}
+
       </Viewer>
     </Box>
   );

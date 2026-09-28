@@ -3,7 +3,7 @@ import { Drawer, Box, Typography, List, ListItem, IconButton, ListItemIcon, Chec
 import InfoIcon from "@mui/icons-material/Info";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import ExpandLessIcon from "@mui/icons-material/ExpandLess";
-import { OFFLINE_SATELLITES, SatelliteData } from "@/lib/satellites";
+import { SatelliteData } from "@/lib/satellites";
 
 interface SidebarProps {
   open: boolean;
@@ -22,7 +22,7 @@ const DRAWER_WIDTH = 340;
 export default function Sidebar({
   open,
   onClose,
-  satellites = OFFLINE_SATELLITES,
+  satellites = [],
   hiddenSatellites,
   onToggleSatellite,
   onUpdateSatellite,
@@ -136,9 +136,9 @@ export default function Sidebar({
                     width: 10,
                     height: 10,
                     borderRadius: '50%',
-                    bgcolor: sat.colorHex,
+                    bgcolor: '#38bdf8',
                     mr: 2,
-                    boxShadow: `0 0 4px ${sat.colorHex}80`
+                    boxShadow: `0 0 4px #38bdf880`
                   }}
                 />
 
@@ -150,37 +150,55 @@ export default function Sidebar({
             </ListItem>
             <Collapse in={isExpanded} timeout="auto" unmountOnExit>
               <Box sx={{ pl: 7, pr: 2, py: 1.5, display: 'flex', flexDirection: 'column', gap: 0.5, bgcolor: 'action.hover', borderBottom: '1px solid', borderColor: 'divider' }}>
-                <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600, mb: 0.5, letterSpacing: 0.5 }}>
-                  SYSTEMS
+                <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600, mb: 0.5, letterSpacing: 0.5, mt: 1 }}>
+                  CAMERAS
                 </Typography>
-                {(!sat.cameras?.length && !sat.sensors?.length && !sat.communications?.length) ? (
-                  <Typography variant="body2" color="text.secondary" sx={{ fontStyle: 'italic', pl: 1, py: 1 }}>
-                    No systems installed
-                  </Typography>
+                {sat.cameras?.length > 0 ? (
+                  sat.cameras.map(cam => (
+                    <FormControlLabel
+                      key={cam.id}
+                      control={<Switch size="small" checked={cam.active} onChange={(e) => onUpdateSatellite?.(sat.id, { cameras: sat.cameras.map(c => c.id === cam.id ? { ...c, active: e.target.checked } : c) })} />}
+                      label={<Typography variant="body2" sx={{ color: 'text.primary' }}>{cam.name}</Typography>}
+                    />
+                  ))
                 ) : (
-                  <>
-                    {sat.cameras?.map(cam => (
-                      <FormControlLabel
-                        key={cam.id}
-                        control={<Switch size="small" checked={cam.active} onChange={(e) => onUpdateSatellite?.(sat.id, { cameras: sat.cameras.map(c => c.id === cam.id ? { ...c, active: e.target.checked } : c) })} />}
-                        label={<Typography variant="body2" sx={{ color: cam.colorHex || 'text.primary' }}>[CAM] {cam.name}</Typography>}
-                      />
-                    ))}
-                    {sat.sensors?.map(sens => (
-                      <FormControlLabel
-                        key={sens.id}
-                        control={<Switch size="small" checked={sens.active} onChange={(e) => onUpdateSatellite?.(sat.id, { sensors: sat.sensors.map(s => s.id === sens.id ? { ...s, active: e.target.checked } : s) })} />}
-                        label={<Typography variant="body2" sx={{ color: sens.colorHex || 'text.primary' }}>[SNS] {sens.name}</Typography>}
-                      />
-                    ))}
-                    {sat.communications?.map(comm => (
-                      <FormControlLabel
-                        key={comm.id}
-                        control={<Switch size="small" checked={comm.active} onChange={(e) => onUpdateSatellite?.(sat.id, { communications: sat.communications.map(c => c.id === comm.id ? { ...c, active: e.target.checked } : c) })} />}
-                        label={<Typography variant="body2" sx={{ color: comm.colorHex || 'text.primary' }}>[COM] {comm.name}</Typography>}
-                      />
-                    ))}
-                  </>
+                  <Typography variant="body2" color="text.secondary" sx={{ fontStyle: 'italic', pl: 1 }}>
+                    No cameras attached
+                  </Typography>
+                )}
+
+                <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600, mb: 0.5, letterSpacing: 0.5, mt: 1 }}>
+                  SENSORS
+                </Typography>
+                {sat.sensors?.length > 0 ? (
+                  sat.sensors.map(sens => (
+                    <FormControlLabel
+                      key={sens.id}
+                      control={<Switch size="small" checked={sens.active} onChange={(e) => onUpdateSatellite?.(sat.id, { sensors: sat.sensors.map(s => s.id === sens.id ? { ...s, active: e.target.checked } : s) })} />}
+                      label={<Typography variant="body2" sx={{ color: 'text.primary' }}>{sens.name}</Typography>}
+                    />
+                  ))
+                ) : (
+                  <Typography variant="body2" color="text.secondary" sx={{ fontStyle: 'italic', pl: 1 }}>
+                    No sensors attached
+                  </Typography>
+                )}
+
+                <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600, mb: 0.5, letterSpacing: 0.5, mt: 1 }}>
+                  COMMUNICATIONS
+                </Typography>
+                {sat.communications?.length > 0 ? (
+                  sat.communications.map(comm => (
+                    <FormControlLabel
+                      key={comm.id}
+                      control={<Switch size="small" checked={comm.active} onChange={(e) => onUpdateSatellite?.(sat.id, { communications: sat.communications.map(c => c.id === comm.id ? { ...c, active: e.target.checked } : c) })} />}
+                      label={<Typography variant="body2" sx={{ color: 'text.primary' }}>{comm.name}</Typography>}
+                    />
+                  ))
+                ) : (
+                  <Typography variant="body2" color="text.secondary" sx={{ fontStyle: 'italic', pl: 1 }}>
+                    No communications attached
+                  </Typography>
                 )}
               </Box>
             </Collapse>
