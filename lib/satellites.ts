@@ -19,124 +19,86 @@ export interface SatelliteData {
   cameras: SystemPayload[];
   sensors: SystemPayload[];
   communications: SystemPayload[];
+  tleLine1?: string;
+  tleLine2?: string;
+  colorHex?: string;
 }
 
 export const SATELLITE_UPDATE_EVENT = "satellite_data_updated";
 
 export function useSatellites() {
+  const [availableNames, setAvailableNames] = useState<string[]>([]);
   const [satellites, setSatellites] = useState<SatelliteData[]>([]);
   const [isLoaded, setIsLoaded] = useState<boolean>(false);
   const { get, post, patch, del } = useApi();
 
-  const refresh = useCallback(async () => {
+  const fetchAvailableNames = useCallback(async () => {
     try {
-      const data = await get<any[]>("/satellites");
-
-      const formattedData: SatelliteData[] = data.map((sat: any, index: number) => ({
-        id: sat.id || `sat-${index}-${sat.name?.replace(/\s+/g, "-")}`,
-        name: sat.name || "Unknown Satellite",
-        type: sat.type || "Experimental",
-        altitudeKm: sat.altitudeKm || 500,
-        inclinationDeg: sat.inclinationDeg !== undefined ? sat.inclinationDeg : 45,
-        speedMultiplier: sat.speedMultiplier || 1.0,
-        periodSec: sat.periodSec || 90,
-        cameras: sat.cameras || [],
-        sensors: sat.sensors || [],
-        communications: sat.communications || [],
-      }));
-
-      setSatellites(formattedData);
+      const data = await get<any[]>("/getSatellites");
+      const names = data?.map(item => typeof item === 'string' ? item : (item.name || item.OBJECT_NAME || 'Unknown')) || [];
+      setAvailableNames(names);
       setIsLoaded(true);
     } catch (err) {
-      console.error("Failed to load from JSON server:", err);
-      // Fallback if the server goes down
-      setSatellites([]);
+      console.error("Failed to load satellite names:", err);
+      setAvailableNames([]);
       setIsLoaded(true);
     }
   }, [get]);
 
   useEffect(() => {
-    refresh();
-    const interval = setInterval(refresh, 5000); // Poll every 5 seconds
+    fetchAvailableNames();
+    const interval = setInterval(fetchAvailableNames, 60000); // Poll every 60s
 
-    const handleUpdate = () => refresh();
-    window.addEventListener(SATELLITE_UPDATE_EVENT, handleUpdate);
+    return () => clearInterval(interval);
+  }, [fetchAvailableNames]);
 
-    return () => {
-      clearInterval(interval);
-      window.removeEventListener(SATELLITE_UPDATE_EVENT, handleUpdate);
-    };
-  }, [refresh]);
-
-  const addSatellite = useCallback(async (newSat: Omit<SatelliteData, "id"> & { id?: string }) => {
-    const id = newSat.id && newSat.id.trim() ? newSat.id.trim().toLowerCase().replace(/\s+/g, "-") : `sat-${Date.now()}`;
-    const completeSat = {
-      ...newSat,
-      id,
-      cameras: newSat.cameras || [],
-      sensors: newSat.sensors || [],
-      communications: newSat.communications || [],
-    };
-
-    try {
-      await post("/satellites", completeSat);
-      refresh();
-    } catch (err) {
-      console.error("Failed to add satellite to server:", err);
+  const loadSatellitesByNames = useCallback(async (names: string[]) => {
+    if (names.length === 0) {
+      setSatellites([]);
+      return;
     }
-    return completeSat as SatelliteData;
-  }, [post, refresh]);
+    try {
+      const data = await post<any[]>("/tleNames", { names });
+
+      const formattedData: SatelliteData[] = data.map((sat: any, index: number) => ({
+        id: sat.id || `sat-${index}-${sat.name?.replace(/\s+/g, "-")}`,
+        name: sat.name || sat.OBJECT_NAME || "Unknown Satellite",
+        type: sat.type || "Observation",
+        altitudeKm: sat.altitudeKm || 500,
+        inclinationDeg: sat.inclinationDeg || 45,
+        speedMultiplier: sat.speedMultiplier || 1.0,
+        periodSec: sat.periodSec || 90,
+        cameras: sat.cameras || [],
+        sensors: sat.sensors || [],
+        communications: sat.communications || [],
+        tleLine1: sat.TLE_LINE1,
+        tleLine2: sat.TLE_LINE2,
+        colorHex: sat.colorHex || "#38bdf8",
+      }));
+
+      setSatellites(formattedData);
+    } catch (err) {
+      console.error("Failed to load details for selected satellites:", err);
+    }
+  }, [post]);
 
   const updateSatellite = useCallback(async (id: string, updatedData: Partial<SatelliteData>) => {
-    try {
-      await patch(`/satellites/${id}`, updatedData);
-      refresh();
-    } catch (err) {
-      console.error("Failed to update satellite on server:", err);
-    }
-  }, [patch, refresh]);
-
-  const deleteSatellite = useCallback(async (id: string) => {
-    try {
-      await del(`/satellites/${id}`);
-      refresh();
-    } catch (err) {
-      console.error("Failed to delete satellite on server:", err);
-    }
-  }, [del, refresh]);
-
-  const duplicateSatellite = useCallback(async (id: string) => {
-    const target = satellites.find((sat) => sat.id === id);
-    if (!target) return null;
-
-    const newId = `${target.id}-copy-${Date.now().toString().slice(-4)}`;
-    const duplicated = {
-      ...target,
-      id: newId,
-      name: `${target.name} (Copy)`,
-      cameras: target.cameras?.map((c: any) => ({ ...c, id: `${c.id}-copy` })) || [],
-      sensors: target.sensors?.map((c: any) => ({ ...c, id: `${c.id}-copy` })) || [],
-      communications: target.communications?.map((c: any) => ({ ...c, id: `${c.id}-copy` })) || [],
-    };
-
-    try {
-      await post("/satellites", duplicated);
-      refresh();
-    } catch (err) {
-      console.error("Failed to duplicate satellite on server:", err);
-    }
-    return duplicated as SatelliteData;
-  }, [satellites, post, refresh]);
-
-  const resetToDefaults = useCallback(() => {
-    console.warn("Reset to defaults is not fully supported with a live JSON server.");
+    // Local update only since these come from an external static API
+    setSatellites(prev => prev.map(sat => sat.id === id ? { ...sat, ...updatedData } : sat));
   }, []);
 
+  const addSatellite = useCallback(async (newSat: any) => {}, []);
+  const deleteSatellite = useCallback(async (id: string) => {}, []);
+  const duplicateSatellite = useCallback(async (id: string) => { return null; }, []);
+  const resetToDefaults = useCallback(() => {}, []);
+
   return {
+    availableNames,
     satellites,
     isLoaded,
-    addSatellite,
+    loadSatellitesByNames,
     updateSatellite,
+    addSatellite,
     deleteSatellite,
     duplicateSatellite,
     resetToDefaults,

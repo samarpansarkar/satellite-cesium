@@ -96,15 +96,15 @@ export default function SatellitesManagementPage() {
       inclinationDeg: sat.inclinationDeg,
       periodSec: sat.periodSec,
       speedMultiplier: sat.speedMultiplier,
-      colorHex: sat.colorHex,
+      colorHex: sat.colorHex || "#38bdf8",
     });
     setFormErrors({});
     setDialogOpen(true);
   };
 
-  const handleDuplicate = (sat: SatelliteData) => {
-    const duplicated = duplicateSatellite(sat.id);
-    if (duplicated) {
+  const handleDuplicate = async (sat: SatelliteData) => {
+    const duplicated: any = await duplicateSatellite(sat.id);
+    if (duplicated && duplicated.name) {
       showToast(`Duplicated "${sat.name}" as "${duplicated.name}"`, "success");
     }
   };
