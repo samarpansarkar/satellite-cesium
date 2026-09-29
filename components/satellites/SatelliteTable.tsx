@@ -85,17 +85,6 @@ export default function SatelliteTable({
                 >
                   <TableCell sx={{ py: 2 }}>
                     <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
-                      {/* Color Swatch Dot */}
-                      <Box
-                        sx={{
-                          width: 14,
-                          height: 14,
-                          borderRadius: "50%",
-                          bgcolor: sat.colorHex,
-                          flexShrink: 0,
-                          boxShadow: `0 0 8px ${sat.colorHex}99`,
-                        }}
-                      />
                       <Box>
                         <Typography variant="body2" sx={{ fontWeight: 700, color: "text.primary" }}>
                           {sat.name}

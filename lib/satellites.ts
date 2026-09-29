@@ -21,7 +21,6 @@ export interface SatelliteData {
   communications: SystemPayload[];
   tleLine1?: string;
   tleLine2?: string;
-  colorHex?: string;
 }
 
 export const SATELLITE_UPDATE_EVENT = "satellite_data_updated";
@@ -35,7 +34,11 @@ export function useSatellites() {
   const fetchAvailableNames = useCallback(async () => {
     try {
       const data = await get<any[]>("/getSatellites");
+      console.log("raw /getSatellites response:", data);
+      
       const names = data?.map(item => typeof item === 'string' ? item : (item.name || item.OBJECT_NAME || 'Unknown')) || [];
+      console.log("extracted names for sidebar:", names);
+      
       setAvailableNames(names);
       setIsLoaded(true);
     } catch (err) {
@@ -58,7 +61,9 @@ export function useSatellites() {
       return;
     }
     try {
+      console.log("fetching tle details for:", names);
       const data = await post<any[]>("/tleNames", { names });
+      console.log("raw /tleNames response:", data);
 
       const formattedData: SatelliteData[] = data.map((sat: any, index: number) => ({
         id: sat.id || `sat-${index}-${sat.name?.replace(/\s+/g, "-")}`,
@@ -73,8 +78,9 @@ export function useSatellites() {
         communications: sat.communications || [],
         tleLine1: sat.TLE_LINE1,
         tleLine2: sat.TLE_LINE2,
-        colorHex: sat.colorHex || "#38bdf8",
       }));
+      
+      console.log("mapped data for cesium:", formattedData);
 
       setSatellites(formattedData);
     } catch (err) {

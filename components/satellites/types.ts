@@ -8,7 +8,7 @@ export interface SatelliteFormData {
   inclinationDeg: number | string;
   periodSec: number | string;
   speedMultiplier: number | string;
-  colorHex: string;
+
 }
 
 export const PRESET_COLORS = [
@@ -48,7 +48,7 @@ export const DEFAULT_FORM: SatelliteFormData = {
   inclinationDeg: 53.0,
   periodSec: 95,
   speedMultiplier: 1.0,
-  colorHex: "#38bdf8",
+
 };
 
 export function getOrbitCategory(altitudeKm: number): "LEO" | "MEO" | "GEO" {

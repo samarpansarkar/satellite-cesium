@@ -160,61 +160,7 @@ export default function SatelliteFormDialog({
           </Grid>
 
           {/* Custom Color Code */}
-          <Grid size={{ xs: 12, sm: 6 }}>
-            <TextField
-              label="Orbit Color Hex"
-              fullWidth
-              size="small"
-              value={formData.colorHex}
-              onChange={(e) => onChange({ ...formData, colorHex: e.target.value })}
-              error={!!formErrors.colorHex}
-              helperText={formErrors.colorHex || "Custom hex code (e.g. #38bdf8)"}
-              slotProps={{
-                input: {
-                  startAdornment: (
-                    <InputAdornment position="start">
-                      <Box
-                        sx={{
-                          width: 16,
-                          height: 16,
-                          borderRadius: "40%",
-                          bgcolor: formData.colorHex || "#fff",
-                          border: "1px solid rgba(255,255,255,0.3)",
-                        }}
-                      />
-                    </InputAdornment>
-                  ),
-                },
-              }}
-            />
-          </Grid>
 
-          {/* Palette Swatches */}
-          <Grid size={{ xs: 12 }}>
-            <Typography variant="caption" sx={{ color: "text.secondary", mb: 1, display: "block", fontWeight: 600 }}>
-              ORBIT &amp; MARKER PRESET PALETTE
-            </Typography>
-            <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1 }}>
-              {PRESET_COLORS.map((c) => (
-                <Box
-                  key={c}
-                  onClick={() => onChange({ ...formData, colorHex: c })}
-                  sx={{
-                    width: 28,
-                    height: 28,
-                    borderRadius: "6px",
-                    bgcolor: c,
-                    cursor: "pointer",
-                    border: formData.colorHex.toLowerCase() === c.toLowerCase() ? "2px solid #fff" : "1px solid rgba(255,255,255,0.15)",
-                    transform: formData.colorHex.toLowerCase() === c.toLowerCase() ? "scale(1.15)" : "scale(1)",
-                    boxShadow: formData.colorHex.toLowerCase() === c.toLowerCase() ? `0 0 10px ${c}` : "none",
-                    transition: "all 0.15s ease",
-                    "&:hover": { transform: "scale(1.1)" },
-                  }}
-                />
-              ))}
-            </Box>
-          </Grid>
         </Grid>
       </DialogContent>
 

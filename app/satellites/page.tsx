@@ -96,7 +96,6 @@ export default function SatellitesManagementPage() {
       inclinationDeg: sat.inclinationDeg,
       periodSec: sat.periodSec,
       speedMultiplier: sat.speedMultiplier,
-      colorHex: sat.colorHex || "#38bdf8",
     });
     setFormErrors({});
     setDialogOpen(true);
@@ -151,9 +150,7 @@ export default function SatellitesManagementPage() {
     if (isNaN(speed) || speed <= 0 || speed > 20) {
       errors.speedMultiplier = "Speed multiplier must be between 0.1 and 20";
     }
-    if (!formData.colorHex || !/^#([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6})$/.test(formData.colorHex)) {
-      errors.colorHex = "Valid Hex color code required (e.g. #38bdf8)";
-    }
+
 
     setFormErrors(errors);
     return Object.keys(errors).length === 0;
@@ -169,7 +166,6 @@ export default function SatellitesManagementPage() {
       inclinationDeg: Number(formData.inclinationDeg),
       periodSec: Number(formData.periodSec),
       speedMultiplier: Number(formData.speedMultiplier),
-      colorHex: formData.colorHex,
     };
 
     if (isEditing && formData.id) {

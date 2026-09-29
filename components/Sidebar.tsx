@@ -104,6 +104,7 @@ export default function Sidebar({
                       >
                         <InfoIcon fontSize="small" />
                       </IconButton>
+                      {/* 
                       <IconButton
                         edge="end"
                         aria-label="expand"
@@ -113,6 +114,7 @@ export default function Sidebar({
                       >
                         {isExpanded ? <ExpandLessIcon fontSize="small" /> : <ExpandMoreIcon fontSize="small" />}
                       </IconButton>
+                      */}
                     </Box>
                   )
                 }
@@ -156,7 +158,7 @@ export default function Sidebar({
                 </Box>
               </ListItem>
               
-              {satData && (
+              {/* satData && (
                 <Collapse in={isExpanded} timeout="auto" unmountOnExit>
                   <Box sx={{ pl: 7, pr: 2, py: 1.5, display: 'flex', flexDirection: 'column', gap: 0.5, bgcolor: 'action.hover', borderBottom: '1px solid', borderColor: 'divider' }}>
                     <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600, mb: 0.5, letterSpacing: 0.5, mt: 1 }}>
@@ -211,7 +213,7 @@ export default function Sidebar({
                     )}
                   </Box>
                 </Collapse>
-              )}
+              ) */}
             </React.Fragment>
           );
         })}
