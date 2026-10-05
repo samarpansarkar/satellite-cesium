@@ -11,7 +11,6 @@ interface SidebarProps {
   availableNames: string[];
   selectedNames: string[];
   onToggleName: (name: string) => void;
-  onSubmit: () => void;
   satellites: SatelliteData[]; // Detailed data when loaded
   onUpdateSatellite?: (id: string, updatedData: Partial<SatelliteData>) => void;
   onOpenInfo: (sat: SatelliteData) => void;
@@ -27,7 +26,6 @@ export default function Sidebar({
   availableNames = [],
   selectedNames = [],
   onToggleName,
-  onSubmit,
   satellites = [],
   onUpdateSatellite,
   onOpenInfo,
@@ -66,7 +64,7 @@ export default function Sidebar({
           </Typography>
         </Box>
         <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
-          Select satellites and submit to display on map
+          Select satellites to display on map
         </Typography>
         <Box sx={{ display: 'flex', gap: 1, mb: 1.5 }}>
           <Button size="small" variant="outlined" color="primary" onClick={onSelectAll} fullWidth>
@@ -76,9 +74,6 @@ export default function Sidebar({
             Clear All
           </Button>
         </Box>
-        <Button variant="contained" color="primary" onClick={onSubmit} fullWidth>
-          Submit Selected ({selectedNames.length})
-        </Button>
       </Box>
 
       <List sx={{ p: 0 }}>

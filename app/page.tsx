@@ -20,21 +20,21 @@ export default function Home() {
   const [baseMapMode, setBaseMapMode] = useState<"natural" | "grid">("natural");
 
   const handleToggleName = (name: string) => {
-    setSelectedNames((prev) =>
-      prev.includes(name) ? prev.filter((n) => n !== name) : [...prev, name]
-    );
+    setSelectedNames((prev) => {
+      const newNames = prev.includes(name) ? prev.filter((n) => n !== name) : [...prev, name];
+      loadSatellitesByNames(newNames);
+      return newNames;
+    });
   };
 
   const handleSelectAll = () => {
     setSelectedNames([...availableNames]);
+    loadSatellitesByNames([...availableNames]);
   };
 
   const handleClearAll = () => {
     setSelectedNames([]);
-  };
-
-  const handleSubmit = () => {
-    loadSatellitesByNames(selectedNames);
+    loadSatellitesByNames([]);
   };
 
   return (
@@ -48,7 +48,6 @@ export default function Home() {
         selectedNames={selectedNames}
         satellites={satellites}
         onToggleName={handleToggleName}
-        onSubmit={handleSubmit}
         onUpdateSatellite={updateSatellite}
         onOpenInfo={setSelectedSatInfo} 
         onSelectAll={handleSelectAll}
