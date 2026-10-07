@@ -142,16 +142,37 @@ export default function CesiumViewer({
 
         cameraWithProps: initialSat.camera ? {
           beamProperty: new Cesium.CallbackProperty(() => {
-            const pos = calculateSatPosition(getSat(), animClock.elapsedTime);
+            const currentSat = getSat();
+            const pos = calculateSatPosition(currentSat, animClock.elapsedTime);
             const earthRadius = 6371000;
             const mag = Cesium.Cartesian3.magnitude(pos);
             const subPos = Cesium.Cartesian3.multiplyByScalar(pos, earthRadius / mag, new Cesium.Cartesian3());
             return [pos, subPos];
+          }, false),
+          subPositionProperty: new Cesium.CallbackProperty(() => {
+            const currentSat = getSat();
+            const pos = calculateSatPosition(currentSat, animClock.elapsedTime);
+            const earthRadius = 6371000;
+            const mag = Cesium.Cartesian3.magnitude(pos);
+            return Cesium.Cartesian3.multiplyByScalar(pos, earthRadius / mag, new Cesium.Cartesian3());
+          }, false),
+          radiusProperty: new Cesium.CallbackProperty(() => {
+            const currentSat = getSat();
+            const fov = currentSat.camera?.fovDeg || 30; // Default 30 deg FOV
+            const altitudeMeters = currentSat.altitudeKm * 1000;
+            const radius = altitudeMeters * Math.tan(Cesium.Math.toRadians(fov / 2));
+            return Math.max(radius, 50000); // Minimum 50km radius for visibility
           }, false)
         } : null,
 
         sensorWithProps: initialSat.sensor ? {
-          fixedRadius: 800000
+          radiusProperty: new Cesium.CallbackProperty(() => {
+            const currentSat = getSat();
+            const fov = currentSat.sensor?.fovDeg || 60; // Default 60 deg FOV for sensors
+            const altitudeMeters = currentSat.altitudeKm * 1000;
+            const radius = altitudeMeters * Math.tan(Cesium.Math.toRadians(fov / 2));
+            return Math.max(radius, 100000); // Minimum 100km radius
+          }, false)
         } : null,
 
         commWithProps: initialSat.communication ? {
@@ -283,8 +304,8 @@ export default function CesiumViewer({
                 <Entity position={orbit.positionProperty as unknown as Cesium.Cartesian3}>
                   <EllipseGraphics
                     height={0}
-                    semiMajorAxis={orbit.sensorWithProps.fixedRadius}
-                    semiMinorAxis={orbit.sensorWithProps.fixedRadius}
+                    semiMajorAxis={orbit.sensorWithProps.radiusProperty as unknown as Cesium.Property}
+                    semiMinorAxis={orbit.sensorWithProps.radiusProperty as unknown as Cesium.Property}
                     material={new Cesium.ColorMaterialProperty(Cesium.Color.ORANGE.withAlpha(0.2))}
                     outline={true}
                     outlineColor={Cesium.Color.ORANGE.withAlpha(1.0)}
@@ -296,10 +317,10 @@ export default function CesiumViewer({
               {/* Camera Scanner Cone Effects */}
               {orbit.cameraWithProps && liveSat.camera?.isActive && (
                 <React.Fragment>
-                  <Entity position={orbit.subPositionProperty as unknown as Cesium.Cartesian3}>
+                  <Entity position={orbit.cameraWithProps.subPositionProperty as unknown as Cesium.Cartesian3}>
                     <EllipseGraphics
-                      semiMajorAxis={400000}
-                      semiMinorAxis={400000}
+                      semiMajorAxis={orbit.cameraWithProps.radiusProperty as unknown as Cesium.Property}
+                      semiMinorAxis={orbit.cameraWithProps.radiusProperty as unknown as Cesium.Property}
                       material={Cesium.Color.CYAN.withAlpha(0.5)}
                       outline={true}
                       outlineColor={Cesium.Color.CYAN.withAlpha(0.9)}

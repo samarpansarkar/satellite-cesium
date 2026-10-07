@@ -8,9 +8,13 @@ export interface SystemPayload {
   targetStation?: [number, number]; // [longitude, latitude] for comms
 }
 
-export interface AttachmentPayload {
+export interface CameraSensorPayload {
   isActive: boolean;
-  inclinationDeg: number;
+  fovDeg: number;
+}
+
+export interface CommunicationPayload {
+  isActive: boolean;
   targetStation?: [number, number];
 }
 
@@ -22,9 +26,9 @@ export interface SatelliteData {
   inclinationDeg: number;
   speedMultiplier: number;
   periodSec: number;
-  camera?: AttachmentPayload;
-  sensor?: AttachmentPayload;
-  communication?: AttachmentPayload;
+  camera?: CameraSensorPayload;
+  sensor?: CameraSensorPayload;
+  communication?: CommunicationPayload;
   tleLine1?: string;
   tleLine2?: string;
 }
@@ -38,9 +42,9 @@ export interface RawSatelliteResponse {
   inclinationDeg?: number;
   speedMultiplier?: number;
   periodSec?: number;
-  camera?: AttachmentPayload;
-  sensor?: AttachmentPayload;
-  communication?: AttachmentPayload;
+  camera?: CameraSensorPayload;
+  sensor?: CameraSensorPayload;
+  communication?: CommunicationPayload;
   TLE_LINE1?: string;
   TLE_LINE2?: string;
 }
@@ -131,6 +135,26 @@ export function useSatellites() {
   const duplicateSatellite = useCallback(async (id: string): Promise<SatelliteData | null> => { return null; }, []);
   const resetToDefaults = useCallback(() => { }, []);
 
+  const updateAttachmentFov = useCallback(async (id: string, type: "camera" | "sensor", fovDeg: number) => {
+    try {
+      await post("/updateFov", { id, type, fovDeg });
+      setSatellites(prev => prev.map(sat => {
+        if (sat.id === id && sat[type]) {
+          return {
+            ...sat,
+            [type]: {
+              ...sat[type]!,
+              fovDeg
+            }
+          };
+        }
+        return sat;
+      }));
+    } catch (err) {
+      console.error("Failed to update FOV:", err);
+    }
+  }, [post]);
+
   return {
     availableNames,
     satellites,
@@ -141,5 +165,6 @@ export function useSatellites() {
     deleteSatellite,
     duplicateSatellite,
     resetToDefaults,
+    updateAttachmentFov,
   };
 }

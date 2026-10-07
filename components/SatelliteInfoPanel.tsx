@@ -1,5 +1,5 @@
-import React from 'react';
-import { Card, CardHeader, CardContent, Typography, IconButton, Divider, Box, Switch, FormControlLabel } from "@mui/material";
+import React, { useState, useEffect } from 'react';
+import { Card, CardHeader, CardContent, Typography, IconButton, Divider, Box, Switch, FormControlLabel, TextField } from "@mui/material";
 import CloseIcon from "@mui/icons-material/Close";
 import { SatelliteData } from "@/lib/satellites";
 
@@ -7,9 +7,10 @@ interface SatelliteInfoPanelProps {
   satellite: SatelliteData | null;
   onClose: () => void;
   onUpdateSatellite?: (id: string, updatedData: Partial<SatelliteData>) => void;
+  onUpdateFov?: (id: string, type: "camera" | "sensor", fovDeg: number) => void;
 }
 
-export default function SatelliteInfoPanel({ satellite, onClose, onUpdateSatellite }: SatelliteInfoPanelProps) {
+export default function SatelliteInfoPanel({ satellite, onClose, onUpdateSatellite, onUpdateFov }: SatelliteInfoPanelProps) {
   if (!satellite) return null;
 
   return (
@@ -37,7 +38,18 @@ export default function SatelliteInfoPanel({ satellite, onClose, onUpdateSatelli
                   control={<Switch size="small" checked={satellite.camera.isActive} onChange={(e) => onUpdateSatellite?.(satellite.id, { camera: { ...satellite.camera!, isActive: e.target.checked } })} />}
                   label={<Typography variant="body2">{satellite.camera.isActive ? "Active" : "Inactive"}</Typography>}
                 />
-                <Typography variant="caption" color="text.secondary">Inclination: {satellite.camera.inclinationDeg}&deg;</Typography>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 0.5 }}>
+                  <Typography variant="caption" color="text.secondary">FOV (Degrees):</Typography>
+                  <TextField 
+                    size="small"
+                    type="number"
+                    variant="outlined"
+                    sx={{ width: 80, '& .MuiInputBase-input': { p: 0.5, fontSize: '0.75rem' } }}
+                    defaultValue={satellite.camera.fovDeg}
+                    onBlur={(e) => onUpdateFov?.(satellite.id, "camera", Number(e.target.value))}
+                  />
+                  <Typography variant="caption" color="text.secondary">&deg;</Typography>
+                </Box>
               </Box>
             ) : (
               <Typography variant="body2" color="text.secondary" sx={{ fontStyle: 'italic', pl: 2 }}>No camera attached</Typography>
@@ -51,7 +63,18 @@ export default function SatelliteInfoPanel({ satellite, onClose, onUpdateSatelli
                   control={<Switch size="small" checked={satellite.sensor.isActive} onChange={(e) => onUpdateSatellite?.(satellite.id, { sensor: { ...satellite.sensor!, isActive: e.target.checked } })} />}
                   label={<Typography variant="body2">{satellite.sensor.isActive ? "Active" : "Inactive"}</Typography>}
                 />
-                <Typography variant="caption" color="text.secondary">Inclination: {satellite.sensor.inclinationDeg}&deg;</Typography>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 0.5 }}>
+                  <Typography variant="caption" color="text.secondary">FOV (Degrees):</Typography>
+                  <TextField 
+                    size="small"
+                    type="number"
+                    variant="outlined"
+                    sx={{ width: 80, '& .MuiInputBase-input': { p: 0.5, fontSize: '0.75rem' } }}
+                    defaultValue={satellite.sensor.fovDeg}
+                    onBlur={(e) => onUpdateFov?.(satellite.id, "sensor", Number(e.target.value))}
+                  />
+                  <Typography variant="caption" color="text.secondary">&deg;</Typography>
+                </Box>
               </Box>
             ) : (
               <Typography variant="body2" color="text.secondary" sx={{ fontStyle: 'italic', pl: 2 }}>No sensor attached</Typography>
@@ -65,7 +88,6 @@ export default function SatelliteInfoPanel({ satellite, onClose, onUpdateSatelli
                   control={<Switch size="small" checked={satellite.communication.isActive} onChange={(e) => onUpdateSatellite?.(satellite.id, { communication: { ...satellite.communication!, isActive: e.target.checked } })} />}
                   label={<Typography variant="body2">{satellite.communication.isActive ? "Active" : "Inactive"}</Typography>}
                 />
-                <Typography variant="caption" color="text.secondary">Inclination: {satellite.communication.inclinationDeg}&deg;</Typography>
                 {satellite.communication.targetStation && (
                   <Typography variant="caption" color="text.secondary">
                     Target Station: [{satellite.communication.targetStation[0].toFixed(2)}, {satellite.communication.targetStation[1].toFixed(2)}]
