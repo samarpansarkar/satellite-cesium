@@ -102,7 +102,7 @@ export default function SatellitesManagementPage() {
   };
 
   const handleDuplicate = async (sat: SatelliteData) => {
-    const duplicated: any = await duplicateSatellite(sat.id);
+    const duplicated = await duplicateSatellite(sat.id);
     if (duplicated && duplicated.name) {
       showToast(`Duplicated "${sat.name}" as "${duplicated.name}"`, "success");
     }

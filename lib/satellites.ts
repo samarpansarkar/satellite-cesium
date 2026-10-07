@@ -1,11 +1,17 @@
 import { useState, useEffect, useCallback } from "react";
-import { useApi } from "@/hooks/useApi";
+import { useFetch } from "@/hooks/useFetch";
 
 export interface SystemPayload {
   id: string;
   name: string;
   active: boolean;
   targetStation?: [number, number]; // [longitude, latitude] for comms
+}
+
+export interface AttachmentPayload {
+  isActive: boolean;
+  inclinationDeg: number;
+  targetStation?: [number, number];
 }
 
 export interface SatelliteData {
@@ -16,12 +22,30 @@ export interface SatelliteData {
   inclinationDeg: number;
   speedMultiplier: number;
   periodSec: number;
-  cameras: SystemPayload[];
-  sensors: SystemPayload[];
-  communications: SystemPayload[];
+  camera?: AttachmentPayload;
+  sensor?: AttachmentPayload;
+  communication?: AttachmentPayload;
   tleLine1?: string;
   tleLine2?: string;
 }
+
+export interface RawSatelliteResponse {
+  id?: string;
+  name?: string;
+  OBJECT_NAME?: string;
+  type?: string;
+  altitudeKm?: number;
+  inclinationDeg?: number;
+  speedMultiplier?: number;
+  periodSec?: number;
+  camera?: AttachmentPayload;
+  sensor?: AttachmentPayload;
+  communication?: AttachmentPayload;
+  TLE_LINE1?: string;
+  TLE_LINE2?: string;
+}
+
+export type RawSatelliteNameResponse = string | RawSatelliteResponse;
 
 export const SATELLITE_UPDATE_EVENT = "satellite_data_updated";
 
@@ -31,11 +55,11 @@ export function useSatellites() {
   const [availableNames, setAvailableNames] = useState<string[]>([]);
   const [satellites, setSatellites] = useState<SatelliteData[]>([]);
   const [isLoaded, setIsLoaded] = useState<boolean>(false);
-  const { get, post, patch, del } = useApi();
+  const { get, post, patch, del } = useFetch();
 
   const fetchAvailableNames = useCallback(async () => {
     try {
-      const data = await get<any[]>("/getSatellites");
+      const data = await get<RawSatelliteNameResponse[]>("/getSatellites");
       console.log("raw /getSatellites response:", data);
 
       const names = data?.map(item => typeof item === 'string' ? item : (item.name || item.OBJECT_NAME || 'Unknown')) || [];
@@ -65,10 +89,10 @@ export function useSatellites() {
       let newFormattedData: SatelliteData[] = [];
       if (missingNames.length > 0) {
         console.log("fetching tle details for missing names:", missingNames);
-        const data = await post<any[]>("/tleNames", { names: missingNames });
+        const data = await post<RawSatelliteResponse[]>("/tleNames", { names: missingNames });
         console.log("raw /tleNames response:", data);
 
-        newFormattedData = data.map((sat: any, index: number) => ({
+        newFormattedData = data.map((sat: RawSatelliteResponse, index: number) => ({
           id: sat.id || `sat-${index}-${sat.name?.replace(/\s+/g, "-")}`,
           name: sat.name || sat.OBJECT_NAME || "Unknown Satellite",
           type: sat.type || "Observation",
@@ -76,9 +100,9 @@ export function useSatellites() {
           inclinationDeg: sat.inclinationDeg || 45,
           speedMultiplier: sat.speedMultiplier || 1.0,
           periodSec: sat.periodSec || 90,
-          cameras: sat.cameras || [],
-          sensors: sat.sensors || [],
-          communications: sat.communications || [],
+          camera: sat.camera,
+          sensor: sat.sensor,
+          communication: sat.communication,
           tleLine1: sat.TLE_LINE1,
           tleLine2: sat.TLE_LINE2,
         }));
@@ -102,9 +126,9 @@ export function useSatellites() {
     setSatellites(prev => prev.map(sat => sat.id === id ? { ...sat, ...updatedData } : sat));
   }, []);
 
-  const addSatellite = useCallback(async (newSat: any) => { }, []);
+  const addSatellite = useCallback(async (newSat: Omit<SatelliteData, "id">) => { }, []);
   const deleteSatellite = useCallback(async (id: string) => { }, []);
-  const duplicateSatellite = useCallback(async (id: string) => { return null; }, []);
+  const duplicateSatellite = useCallback(async (id: string): Promise<SatelliteData | null> => { return null; }, []);
   const resetToDefaults = useCallback(() => { }, []);
 
   return {

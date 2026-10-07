@@ -140,42 +140,33 @@ export default function CesiumViewer({
           return Cesium.Cartesian3.multiplyByScalar(pos, earthRadius / mag, new Cesium.Cartesian3());
         }, false),
 
-        camerasWithProps: initialSat.cameras?.map((cam, idx) => ({
-          ...cam,
+        cameraWithProps: initialSat.camera ? {
           beamProperty: new Cesium.CallbackProperty(() => {
             const pos = calculateSatPosition(getSat(), animClock.elapsedTime);
             const earthRadius = 6371000;
             const mag = Cesium.Cartesian3.magnitude(pos);
             const subPos = Cesium.Cartesian3.multiplyByScalar(pos, earthRadius / mag, new Cesium.Cartesian3());
-            if (idx > 0) {
-              const offset = new Cesium.Cartesian3(idx * 50000, idx * 50000, 0);
-              Cesium.Cartesian3.add(subPos, offset, subPos);
-            }
             return [pos, subPos];
           }, false)
-        })),
+        } : null,
 
-        // Removed expensive dynamic radiusProperty; using fixed radius for performance
-        sensorsWithProps: initialSat.sensors?.map((sens, idx) => ({
-          ...sens,
-          fixedRadius: 800000 + (idx * 50000)
-        })),
+        sensorWithProps: initialSat.sensor ? {
+          fixedRadius: 800000
+        } : null,
 
-        commsWithProps: initialSat.communications?.map((comm, idx) => ({
-          ...comm,
+        commWithProps: initialSat.communication ? {
           linkProperty: new Cesium.CallbackProperty(() => {
             const currentSat = getSat();
             const pos = calculateSatPosition(currentSat, animClock.elapsedTime);
-            // Retrieve latest comm config dynamically
-            const currentComm = currentSat.communications?.find(c => c.id === comm.id) || comm;
-            const target = currentComm.targetStation ? Cesium.Cartesian3.fromDegrees(currentComm.targetStation[0], currentComm.targetStation[1], 0) : GROUND_STATION;
+            const currentComm = currentSat.communication;
+            const target = (currentComm && currentComm.targetStation) ? Cesium.Cartesian3.fromDegrees(currentComm.targetStation[0], currentComm.targetStation[1], 0) : GROUND_STATION;
             return [pos, target];
           }, false),
           linkShowProperty: new Cesium.CallbackProperty(() => {
             const currentSat = getSat();
             const pos = calculateSatPosition(currentSat, animClock.elapsedTime);
-            const currentComm = currentSat.communications?.find(c => c.id === comm.id) || comm;
-            const target = currentComm.targetStation ? Cesium.Cartesian3.fromDegrees(currentComm.targetStation[0], currentComm.targetStation[1], 0) : GROUND_STATION;
+            const currentComm = currentSat.communication;
+            const target = (currentComm && currentComm.targetStation) ? Cesium.Cartesian3.fromDegrees(currentComm.targetStation[0], currentComm.targetStation[1], 0) : GROUND_STATION;
             const distance = Cesium.Cartesian3.distance(pos, target);
 
             const R = 6371000;
@@ -183,7 +174,7 @@ export default function CesiumViewer({
             const maxVisibleDist = Math.sqrt(Math.pow(R + h, 2) - Math.pow(R, 2));
             return distance <= (maxVisibleDist + 500000);
           }, false)
-        }))
+        } : null
       };
     });
   }, [satIds]);
@@ -288,78 +279,62 @@ export default function CesiumViewer({
               </Entity>
 
               {/* Sensor Radar Pulse Effects */}
-              {orbit.sensorsWithProps?.map(sens => {
-                const liveSens = liveSat.sensors?.find(s => s.id === sens.id);
-                if (!liveSens || !liveSens.active) return null;
-                const color = Cesium.Color.ORANGE;
-                return (
-                  <Entity key={sens.id} position={orbit.positionProperty as unknown as Cesium.Cartesian3}>
-                    <EllipseGraphics
-                      height={0}
-                      semiMajorAxis={sens.fixedRadius}
-                      semiMinorAxis={sens.fixedRadius}
-                      material={new Cesium.ColorMaterialProperty(color.withAlpha(0.2))}
-                      outline={true}
-                      outlineColor={color.withAlpha(1.0)}
-                      outlineWidth={4}
-                    />
-                  </Entity>
-                );
-              })}
+              {orbit.sensorWithProps && liveSat.sensor?.isActive && (
+                <Entity position={orbit.positionProperty as unknown as Cesium.Cartesian3}>
+                  <EllipseGraphics
+                    height={0}
+                    semiMajorAxis={orbit.sensorWithProps.fixedRadius}
+                    semiMinorAxis={orbit.sensorWithProps.fixedRadius}
+                    material={new Cesium.ColorMaterialProperty(Cesium.Color.ORANGE.withAlpha(0.2))}
+                    outline={true}
+                    outlineColor={Cesium.Color.ORANGE.withAlpha(1.0)}
+                    outlineWidth={4}
+                  />
+                </Entity>
+              )}
 
               {/* Camera Scanner Cone Effects */}
-              {orbit.camerasWithProps?.map((cam, idx) => {
-                const liveCam = liveSat.cameras?.find(c => c.id === cam.id);
-                if (!liveCam || !liveCam.active) return null;
-                const color = Cesium.Color.CYAN;
-                return (
-                  <React.Fragment key={cam.id}>
-                    <Entity position={orbit.subPositionProperty as unknown as Cesium.Cartesian3}>
-                      <EllipseGraphics
-                        // height={0}
-                        semiMajorAxis={400000 - (idx * 50000)} // slightly different sizes if multiple
-                        semiMinorAxis={400000 - (idx * 50000)}
-                        material={color.withAlpha(0.5)}
-                        outline={true}
-                        outlineColor={color.withAlpha(0.9)}
-                        outlineWidth={3}
-                      />
-                    </Entity>
-                    <Entity>
-                      <PolylineGraphics
-                        positions={cam.beamProperty as unknown as Cesium.Cartesian3[]}
-                        width={4}
-                        arcType={Cesium.ArcType.NONE}
-                        material={new Cesium.PolylineDashMaterialProperty({
-                          color: color.withAlpha(0.8),
-                          dashLength: 40.0,
-                        })}
-                      />
-                    </Entity>
-                  </React.Fragment>
-                );
-              })}
-
-              {/* Communication Laser Link Effects */}
-              {orbit.commsWithProps?.map(comm => {
-                const liveComm = liveSat.communications?.find(c => c.id === comm.id);
-                if (!liveComm || !liveComm.active) return null;
-                const color = Cesium.Color.MAGENTA;
-                return (
-                  <Entity key={comm.id}>
+              {orbit.cameraWithProps && liveSat.camera?.isActive && (
+                <React.Fragment>
+                  <Entity position={orbit.subPositionProperty as unknown as Cesium.Cartesian3}>
+                    <EllipseGraphics
+                      semiMajorAxis={400000}
+                      semiMinorAxis={400000}
+                      material={Cesium.Color.CYAN.withAlpha(0.5)}
+                      outline={true}
+                      outlineColor={Cesium.Color.CYAN.withAlpha(0.9)}
+                      outlineWidth={3}
+                    />
+                  </Entity>
+                  <Entity>
                     <PolylineGraphics
-                      show={comm.linkShowProperty as unknown as Cesium.Property}
-                      positions={comm.linkProperty as unknown as Cesium.Cartesian3[]}
-                      width={3}
+                      positions={orbit.cameraWithProps.beamProperty as unknown as Cesium.Cartesian3[]}
+                      width={4}
                       arcType={Cesium.ArcType.NONE}
-                      material={new Cesium.PolylineGlowMaterialProperty({
-                        glowPower: 0.25,
-                        color: color,
+                      material={new Cesium.PolylineDashMaterialProperty({
+                        color: Cesium.Color.CYAN.withAlpha(0.8),
+                        dashLength: 40.0,
                       })}
                     />
                   </Entity>
-                );
-              })}
+                </React.Fragment>
+              )}
+
+              {/* Communication Laser Link Effects */}
+              {orbit.commWithProps && liveSat.communication?.isActive && (
+                <Entity>
+                  <PolylineGraphics
+                    show={orbit.commWithProps.linkShowProperty as unknown as Cesium.Property}
+                    positions={orbit.commWithProps.linkProperty as unknown as Cesium.Cartesian3[]}
+                    width={3}
+                    arcType={Cesium.ArcType.NONE}
+                    material={new Cesium.PolylineGlowMaterialProperty({
+                      glowPower: 0.25,
+                      color: Cesium.Color.MAGENTA,
+                    })}
+                  />
+                </Entity>
+              )}
             </React.Fragment>
           );
         })}

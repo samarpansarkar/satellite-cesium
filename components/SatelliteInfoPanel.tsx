@@ -1,14 +1,15 @@
 import React from 'react';
-import { Card, CardHeader, CardContent, Typography, IconButton, Divider, Box } from "@mui/material";
+import { Card, CardHeader, CardContent, Typography, IconButton, Divider, Box, Switch, FormControlLabel } from "@mui/material";
 import CloseIcon from "@mui/icons-material/Close";
 import { SatelliteData } from "@/lib/satellites";
 
 interface SatelliteInfoPanelProps {
   satellite: SatelliteData | null;
   onClose: () => void;
+  onUpdateSatellite?: (id: string, updatedData: Partial<SatelliteData>) => void;
 }
 
-export default function SatelliteInfoPanel({ satellite, onClose }: SatelliteInfoPanelProps) {
+export default function SatelliteInfoPanel({ satellite, onClose, onUpdateSatellite }: SatelliteInfoPanelProps) {
   if (!satellite) return null;
 
   return (
@@ -29,33 +30,50 @@ export default function SatelliteInfoPanel({ satellite, onClose }: SatelliteInfo
         <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1 }}>Attachments:</Typography>
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
           <Box>
-            <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.primary' }}>📷 Cameras</Typography>
-            {satellite.cameras?.length > 0 ? (
-              satellite.cameras.map(c => (
-                <Typography key={c.id} variant="body2" sx={{ color: 'text.primary', pl: 2 }}>• {c.name}</Typography>
-              ))
+            <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.primary' }}>📷 Camera</Typography>
+            {satellite.camera ? (
+              <Box sx={{ pl: 2, display: "flex", flexDirection: "column" }}>
+                <FormControlLabel
+                  control={<Switch size="small" checked={satellite.camera.isActive} onChange={(e) => onUpdateSatellite?.(satellite.id, { camera: { ...satellite.camera!, isActive: e.target.checked } })} />}
+                  label={<Typography variant="body2">{satellite.camera.isActive ? "Active" : "Inactive"}</Typography>}
+                />
+                <Typography variant="caption" color="text.secondary">Inclination: {satellite.camera.inclinationDeg}&deg;</Typography>
+              </Box>
             ) : (
-              <Typography variant="body2" color="text.secondary" sx={{ fontStyle: 'italic', pl: 2 }}>This satellite doesn't have any cameras attached</Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ fontStyle: 'italic', pl: 2 }}>No camera attached</Typography>
             )}
           </Box>
           <Box>
-            <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.primary' }}>📡 Sensors</Typography>
-            {satellite.sensors?.length > 0 ? (
-              satellite.sensors.map(s => (
-                <Typography key={s.id} variant="body2" sx={{ color: 'text.primary', pl: 2 }}>• {s.name}</Typography>
-              ))
+            <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.primary' }}>📡 Sensor</Typography>
+            {satellite.sensor ? (
+              <Box sx={{ pl: 2, display: "flex", flexDirection: "column" }}>
+                <FormControlLabel
+                  control={<Switch size="small" checked={satellite.sensor.isActive} onChange={(e) => onUpdateSatellite?.(satellite.id, { sensor: { ...satellite.sensor!, isActive: e.target.checked } })} />}
+                  label={<Typography variant="body2">{satellite.sensor.isActive ? "Active" : "Inactive"}</Typography>}
+                />
+                <Typography variant="caption" color="text.secondary">Inclination: {satellite.sensor.inclinationDeg}&deg;</Typography>
+              </Box>
             ) : (
-              <Typography variant="body2" color="text.secondary" sx={{ fontStyle: 'italic', pl: 2 }}>This satellite doesn't have any sensors attached</Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ fontStyle: 'italic', pl: 2 }}>No sensor attached</Typography>
             )}
           </Box>
           <Box>
-            <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.primary' }}>🛰️ Communications</Typography>
-            {satellite.communications?.length > 0 ? (
-              satellite.communications.map(c => (
-                <Typography key={c.id} variant="body2" sx={{ color: 'text.primary', pl: 2 }}>• {c.name}</Typography>
-              ))
+            <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.primary' }}>🛰️ Communication</Typography>
+            {satellite.communication ? (
+              <Box sx={{ pl: 2, display: "flex", flexDirection: "column" }}>
+                <FormControlLabel
+                  control={<Switch size="small" checked={satellite.communication.isActive} onChange={(e) => onUpdateSatellite?.(satellite.id, { communication: { ...satellite.communication!, isActive: e.target.checked } })} />}
+                  label={<Typography variant="body2">{satellite.communication.isActive ? "Active" : "Inactive"}</Typography>}
+                />
+                <Typography variant="caption" color="text.secondary">Inclination: {satellite.communication.inclinationDeg}&deg;</Typography>
+                {satellite.communication.targetStation && (
+                  <Typography variant="caption" color="text.secondary">
+                    Target Station: [{satellite.communication.targetStation[0].toFixed(2)}, {satellite.communication.targetStation[1].toFixed(2)}]
+                  </Typography>
+                )}
+              </Box>
             ) : (
-              <Typography variant="body2" color="text.secondary" sx={{ fontStyle: 'italic', pl: 2 }}>This satellite doesn't have any communications attached</Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ fontStyle: 'italic', pl: 2 }}>No communication attached</Typography>
             )}
           </Box>
         </Box>

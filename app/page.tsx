@@ -13,7 +13,8 @@ export default function Home() {
   const { availableNames, satellites, isLoaded, loadSatellitesByNames, updateSatellite } = useSatellites();
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [selectedNames, setSelectedNames] = useState<string[]>([]);
-  const [selectedSatInfo, setSelectedSatInfo] = useState<SatelliteData | null>(null);
+  const [selectedSatId, setSelectedSatId] = useState<string | null>(null);
+  const selectedSatInfo = satellites.find(s => s.id === selectedSatId) || null;
 
   const [simulationSpeed, setSimulationSpeed] = useState<number>(1);
   const [showOrbits, setShowOrbits] = useState<boolean>(true);
@@ -49,7 +50,7 @@ export default function Home() {
         satellites={satellites}
         onToggleName={handleToggleName}
         onUpdateSatellite={updateSatellite}
-        onOpenInfo={setSelectedSatInfo} 
+        onOpenInfo={(sat) => setSelectedSatId(sat.id)} 
         onSelectAll={handleSelectAll}
         onClearAll={handleClearAll}
       />
@@ -68,7 +69,8 @@ export default function Home() {
 
           <SatelliteInfoPanel 
             satellite={selectedSatInfo} 
-            onClose={() => setSelectedSatInfo(null)} 
+            onClose={() => setSelectedSatId(null)} 
+            onUpdateSatellite={updateSatellite}
           />
         </Box>
 

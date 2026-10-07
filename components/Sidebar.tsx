@@ -99,17 +99,17 @@ export default function Sidebar({
                       >
                         <InfoIcon fontSize="small" />
                       </IconButton>
-                      {/* 
-                      <IconButton
-                        edge="end"
-                        aria-label="expand"
-                        onClick={() => toggleExpand(satData.id)}
-                        size="small"
-                        sx={{ color: 'text.secondary' }}
-                      >
-                        {isExpanded ? <ExpandLessIcon fontSize="small" /> : <ExpandMoreIcon fontSize="small" />}
-                      </IconButton>
-                      */}
+                      {(satData.camera || satData.sensor || satData.communication) && (
+                        <IconButton
+                          edge="end"
+                          aria-label="expand"
+                          onClick={() => toggleExpand(satData.id)}
+                          size="small"
+                          sx={{ color: 'text.secondary', ml: 0.5 }}
+                        >
+                          {isExpanded ? <ExpandLessIcon fontSize="small" /> : <ExpandMoreIcon fontSize="small" />}
+                        </IconButton>
+                      )}
                     </Box>
                   )
                 }
@@ -153,62 +153,36 @@ export default function Sidebar({
                 </Box>
               </ListItem>
               
-              {/* satData && (
+              {satData && (satData.camera || satData.sensor || satData.communication) && (
                 <Collapse in={isExpanded} timeout="auto" unmountOnExit>
                   <Box sx={{ pl: 7, pr: 2, py: 1.5, display: 'flex', flexDirection: 'column', gap: 0.5, bgcolor: 'action.hover', borderBottom: '1px solid', borderColor: 'divider' }}>
-                    <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600, mb: 0.5, letterSpacing: 0.5, mt: 1 }}>
-                      CAMERAS
+                    <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600, mb: 0.5, letterSpacing: 0.5 }}>
+                      ATTACHMENTS
                     </Typography>
-                    {satData.cameras?.length > 0 ? (
-                      satData.cameras.map(cam => (
-                        <FormControlLabel
-                          key={cam.id}
-                          control={<Switch size="small" checked={cam.active} onChange={(e) => onUpdateSatellite?.(satData.id, { cameras: satData.cameras.map(c => c.id === cam.id ? { ...c, active: e.target.checked } : c) })} />}
-                          label={<Typography variant="body2" sx={{ color: 'text.primary' }}>{cam.name}</Typography>}
-                        />
-                      ))
-                    ) : (
-                      <Typography variant="body2" color="text.secondary" sx={{ fontStyle: 'italic', pl: 1 }}>
-                        No cameras attached
-                      </Typography>
+
+                    {satData.camera && (
+                      <FormControlLabel
+                        control={<Switch size="small" checked={satData.camera.isActive} onChange={(e) => onUpdateSatellite?.(satData.id, { camera: { ...satData.camera!, isActive: e.target.checked } })} />}
+                        label={<Typography variant="body2" sx={{ color: 'text.primary' }}>Camera</Typography>}
+                      />
                     )}
 
-                    <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600, mb: 0.5, letterSpacing: 0.5, mt: 1 }}>
-                      SENSORS
-                    </Typography>
-                    {satData.sensors?.length > 0 ? (
-                      satData.sensors.map(sens => (
-                        <FormControlLabel
-                          key={sens.id}
-                          control={<Switch size="small" checked={sens.active} onChange={(e) => onUpdateSatellite?.(satData.id, { sensors: satData.sensors.map(s => s.id === sens.id ? { ...s, active: e.target.checked } : s) })} />}
-                          label={<Typography variant="body2" sx={{ color: 'text.primary' }}>{sens.name}</Typography>}
-                        />
-                      ))
-                    ) : (
-                      <Typography variant="body2" color="text.secondary" sx={{ fontStyle: 'italic', pl: 1 }}>
-                        No sensors attached
-                      </Typography>
+                    {satData.sensor && (
+                      <FormControlLabel
+                        control={<Switch size="small" checked={satData.sensor.isActive} onChange={(e) => onUpdateSatellite?.(satData.id, { sensor: { ...satData.sensor!, isActive: e.target.checked } })} />}
+                        label={<Typography variant="body2" sx={{ color: 'text.primary' }}>Sensor</Typography>}
+                      />
                     )}
 
-                    <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600, mb: 0.5, letterSpacing: 0.5, mt: 1 }}>
-                      COMMUNICATIONS
-                    </Typography>
-                    {satData.communications?.length > 0 ? (
-                      satData.communications.map(comm => (
-                        <FormControlLabel
-                          key={comm.id}
-                          control={<Switch size="small" checked={comm.active} onChange={(e) => onUpdateSatellite?.(satData.id, { communications: satData.communications.map(c => c.id === comm.id ? { ...c, active: e.target.checked } : c) })} />}
-                          label={<Typography variant="body2" sx={{ color: 'text.primary' }}>{comm.name}</Typography>}
-                        />
-                      ))
-                    ) : (
-                      <Typography variant="body2" color="text.secondary" sx={{ fontStyle: 'italic', pl: 1 }}>
-                        No communications attached
-                      </Typography>
+                    {satData.communication && (
+                      <FormControlLabel
+                        control={<Switch size="small" checked={satData.communication.isActive} onChange={(e) => onUpdateSatellite?.(satData.id, { communication: { ...satData.communication!, isActive: e.target.checked } })} />}
+                        label={<Typography variant="body2" sx={{ color: 'text.primary' }}>Communication</Typography>}
+                      />
                     )}
                   </Box>
                 </Collapse>
-              ) */}
+              )}
             </React.Fragment>
           );
         })}

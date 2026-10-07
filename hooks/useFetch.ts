@@ -1,11 +1,11 @@
 import { useState, useCallback } from "react";
 
-interface UseApiOptions {
+interface UseFetchOptions {
   baseUrl?: string;
   headers?: HeadersInit;
 }
 
-export function useApi(options?: UseApiOptions) {
+export function useFetch(options?: UseFetchOptions) {
   const baseUrl = options?.baseUrl || process.env.NEXT_PUBLIC_API_BASE_URL;
   const defaultHeaders = {
     "Content-Type": "application/json",
@@ -16,7 +16,7 @@ export function useApi(options?: UseApiOptions) {
   const [error, setError] = useState<Error | null>(null);
 
   const request = useCallback(
-    async <T = any>(endpoint: string, method: string = "GET", body?: any): Promise<T> => {
+    async <T = unknown>(endpoint: string, method: string = "GET", body?: unknown): Promise<T> => {
       setIsLoading(true);
       setError(null);
       try {
@@ -39,9 +39,10 @@ export function useApi(options?: UseApiOptions) {
 
         const data = await response.json();
         return data as T;
-      } catch (err: any) {
-        setError(err);
-        throw err;
+      } catch (err: unknown) {
+        const error = err instanceof Error ? err : new Error(String(err));
+        setError(error);
+        throw error;
       } finally {
         setIsLoading(false);
       }
@@ -49,11 +50,11 @@ export function useApi(options?: UseApiOptions) {
     [baseUrl]
   );
 
-  const get = useCallback(<T = any>(endpoint: string) => request<T>(endpoint, "GET"), [request]);
-  const post = useCallback(<T = any>(endpoint: string, body: any) => request<T>(endpoint, "POST", body), [request]);
-  const put = useCallback(<T = any>(endpoint: string, body: any) => request<T>(endpoint, "PUT", body), [request]);
-  const patch = useCallback(<T = any>(endpoint: string, body: any) => request<T>(endpoint, "PATCH", body), [request]);
-  const del = useCallback(<T = any>(endpoint: string) => request<T>(endpoint, "DELETE"), [request]);
+  const get = useCallback(<T = unknown>(endpoint: string) => request<T>(endpoint, "GET"), [request]);
+  const post = useCallback(<T = unknown>(endpoint: string, body: unknown) => request<T>(endpoint, "POST", body), [request]);
+  const put = useCallback(<T = unknown>(endpoint: string, body: unknown) => request<T>(endpoint, "PUT", body), [request]);
+  const patch = useCallback(<T = unknown>(endpoint: string, body: unknown) => request<T>(endpoint, "PATCH", body), [request]);
+  const del = useCallback(<T = unknown>(endpoint: string) => request<T>(endpoint, "DELETE"), [request]);
 
   return {
     get,
