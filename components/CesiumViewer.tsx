@@ -261,30 +261,16 @@ export default function CesiumViewer({
           semiMajorProperty: new Cesium.CallbackProperty(() => {
             const currentSat = getSat();
             const fov = currentSat.sensor?.fovDeg || 60;
-            const inc = currentSat.sensor?.inclinationDeg ?? currentSat.sensor?.inclinationDegree ?? 90;
             const altitudeMeters = currentSat.altitudeKm * 1000;
-            const baseRadius = Math.max(altitudeMeters * Math.tan(Cesium.Math.toRadians(fov / 2)), 100000);
-            // Off-nadir angle (0 when 90°, increasing as it tilts away from nadir)
-            const offNadirRad = Math.abs(Cesium.Math.toRadians(inc - 90));
-            // Oval elongation increases as sensor tilts away from vertical nadir (90°)
-            const tiltFactor = 1.5 + 2.5 * Math.sin(offNadirRad);
-            return baseRadius * tiltFactor;
+            return Math.max(altitudeMeters * Math.tan(Cesium.Math.toRadians(fov / 2)), 100000);
           }, false),
           semiMinorProperty: new Cesium.CallbackProperty(() => {
             const currentSat = getSat();
             const fov = currentSat.sensor?.fovDeg || 60;
-            const inc = currentSat.sensor?.inclinationDeg ?? currentSat.sensor?.inclinationDegree ?? 90;
             const altitudeMeters = currentSat.altitudeKm * 1000;
-            const baseRadius = Math.max(altitudeMeters * Math.tan(Cesium.Math.toRadians(fov / 2)), 100000);
-            const offNadirRad = Math.abs(Cesium.Math.toRadians(inc - 90));
-            const compression = Math.max(1 - 0.2 * Math.sin(offNadirRad), 0.65);
-            return baseRadius * compression;
+            return Math.max(altitudeMeters * Math.tan(Cesium.Math.toRadians(fov / 2)), 100000);
           }, false),
-          rotationProperty: new Cesium.CallbackProperty(() => {
-            const currentSat = getSat();
-            const inc = currentSat.sensor?.inclinationDeg ?? currentSat.sensor?.inclinationDegree ?? 90;
-            return Cesium.Math.toRadians(inc);
-          }, false),
+          rotationProperty: new Cesium.CallbackProperty(() => 0, false),
         } : null,
 
         commWithProps: initialSat.communication ? {

@@ -51,6 +51,7 @@ export default function Home() {
         onToggleName={handleToggleName}
         onUpdateSatellite={updateSatellite}
         onUpdateSensorInclination={updateSensorInclination}
+        onUpdateFov={updateAttachmentFov}
         onOpenInfo={(sat) => setSelectedSatId(sat.id)} 
         onSelectAll={handleSelectAll}
         onClearAll={handleClearAll}

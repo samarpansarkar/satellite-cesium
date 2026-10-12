@@ -15,14 +15,55 @@ export default function SatelliteInfoPanel({ satellite, onClose, onUpdateSatelli
   if (!satellite) return null;
 
   return (
-    <Card sx={{ position: "absolute", top: 80, right: 24, width: 320, zIndex: 10, bgcolor: "background.paper", boxShadow: 6 }}>
+    <Card 
+      sx={{ 
+        position: "absolute", 
+        top: 80, 
+        right: 24, 
+        width: 330, 
+        maxHeight: "min(520px, calc(100vh - 140px))",
+        display: "flex",
+        flexDirection: "column",
+        overflow: "hidden",
+        zIndex: 10, 
+        bgcolor: "background.paper", 
+        boxShadow: 8,
+        borderRadius: 2,
+      }}
+    >
       <CardHeader
         title={<Typography variant="subtitle1" sx={{ fontWeight: "bold", color: '#38bdf8' }}>{satellite.name}</Typography>}
         subheader={satellite.type}
         action={<IconButton aria-label="close" onClick={onClose}><CloseIcon /></IconButton>}
+        sx={{ pb: 1, flexShrink: 0 }}
       />
       <Divider />
-      <CardContent>
+      <CardContent 
+        sx={{ 
+          overflowY: "auto", 
+          flexGrow: 1,
+          minHeight: 0,
+          pt: 1.5,
+          pb: 2,
+          "&:last-child": { pb: 2 },
+          scrollbarWidth: "thin",
+          scrollbarColor: "rgba(56, 189, 248, 0.5) rgba(10, 25, 47, 0.3)",
+          "&::-webkit-scrollbar": {
+            width: "6px",
+          },
+          "&::-webkit-scrollbar-track": {
+            background: "rgba(10, 25, 47, 0.3)",
+            borderRadius: "4px",
+          },
+          "&::-webkit-scrollbar-thumb": {
+            background: "rgba(56, 189, 248, 0.45)",
+            borderRadius: "4px",
+            "&:hover": {
+              background: "rgba(56, 189, 248, 0.75)",
+            },
+          },
+        }}
+      >
         <Typography variant="body2" color="text.secondary" gutterBottom><strong>Altitude:</strong> {satellite.altitudeKm.toLocaleString()} km</Typography>
         <Typography variant="body2" color="text.secondary" gutterBottom><strong>Inclination:</strong> {satellite.inclinationDeg}&deg;</Typography>
         <Typography variant="body2" color="text.secondary" gutterBottom><strong>Orbital Period:</strong> {satellite.periodSec} seconds</Typography>
@@ -39,18 +80,60 @@ export default function SatelliteInfoPanel({ satellite, onClose, onUpdateSatelli
                   control={<Switch size="small" checked={satellite.camera.isActive} onChange={(e) => onUpdateSatellite?.(satellite.id, { camera: { ...satellite.camera!, isActive: e.target.checked } })} />}
                   label={<Typography variant="body2">{satellite.camera.isActive ? "Active" : "Inactive"}</Typography>}
                 />
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 0.5 }}>
-                  <Typography variant="caption" color="text.secondary">FOV (Degrees):</Typography>
-                  <TextField 
+                {/* Interactive Camera FOV Control */}
+                <Box sx={{ bgcolor: 'rgba(56, 189, 248, 0.08)', p: 1.2, borderRadius: 1.5, border: '1px solid rgba(56, 189, 248, 0.2)', mt: 0.5 }}>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 0.5 }}>
+                    <Typography variant="caption" sx={{ fontWeight: 600, color: '#0284c7' }}>
+                      Camera FOV (Cone):
+                    </Typography>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                      <TextField 
+                        size="small"
+                        type="number"
+                        variant="outlined"
+                        sx={{ width: 75, '& .MuiInputBase-input': { p: '2px 4px', fontSize: '0.75rem', textAlign: 'right' } }}
+                        value={satellite.camera.fovDeg ?? 30}
+                        onChange={(e) => {
+                          const val = parseFloat(e.target.value) || 0;
+                          onUpdateFov?.(satellite.id, "camera", val);
+                          onUpdateSatellite?.(satellite.id, {
+                            camera: {
+                              ...satellite.camera!,
+                              fovDeg: val
+                            }
+                          });
+                        }}
+                      />
+                      <Typography variant="caption" sx={{ color: '#0284c7', fontWeight: 600 }}>&deg;</Typography>
+                    </Box>
+                  </Box>
+
+                  <Slider 
                     size="small"
-                    type="number"
-                    variant="outlined"
-                    sx={{ width: 80, '& .MuiInputBase-input': { p: 0.5, fontSize: '0.75rem' } }}
-                    key={`camera-fov-${satellite.id}-${satellite.camera.fovDeg}`}
-                    defaultValue={satellite.camera.fovDeg}
-                    onBlur={(e) => onUpdateFov?.(satellite.id, "camera", Number(e.target.value))}
+                    min={5}
+                    max={120}
+                    step={1}
+                    value={satellite.camera.fovDeg ?? 30}
+                    onChange={(_, val) => {
+                      const numVal = val as number;
+                      onUpdateFov?.(satellite.id, "camera", numVal);
+                      onUpdateSatellite?.(satellite.id, {
+                        camera: {
+                          ...satellite.camera!,
+                          fovDeg: numVal
+                        }
+                      });
+                    }}
+                    sx={{ color: '#0284c7', my: 0.5 }}
                   />
-                  <Typography variant="caption" color="text.secondary">&deg;</Typography>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mt: 0.2 }}>
+                    <Typography variant="caption" sx={{ fontSize: '0.68rem', color: 'text.secondary' }}>
+                      Optical Beam Coverage
+                    </Typography>
+                    <Typography variant="caption" sx={{ fontSize: '0.68rem', color: '#0284c7', fontWeight: 600 }}>
+                      {satellite.camera.fovDeg}&deg; Cone
+                    </Typography>
+                  </Box>
                 </Box>
               </Box>
             ) : (
@@ -66,18 +149,60 @@ export default function SatelliteInfoPanel({ satellite, onClose, onUpdateSatelli
                   label={<Typography variant="body2">{satellite.sensor.isActive ? "Active (Radar Swath Visible)" : "Inactive"}</Typography>}
                 />
                 
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <Typography variant="caption" color="text.secondary">FOV (Degrees):</Typography>
-                  <TextField 
+                {/* Interactive Sensor FOV Control */}
+                <Box sx={{ bgcolor: 'rgba(249, 115, 22, 0.08)', p: 1.2, borderRadius: 1.5, border: '1px solid rgba(249, 115, 22, 0.2)' }}>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 0.5 }}>
+                    <Typography variant="caption" sx={{ fontWeight: 600, color: '#f97316' }}>
+                      Sensor FOV (Beam Width):
+                    </Typography>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                      <TextField 
+                        size="small"
+                        type="number"
+                        variant="outlined"
+                        sx={{ width: 75, '& .MuiInputBase-input': { p: '2px 4px', fontSize: '0.75rem', textAlign: 'right' } }}
+                        value={satellite.sensor.fovDeg ?? 60}
+                        onChange={(e) => {
+                          const val = parseFloat(e.target.value) || 0;
+                          onUpdateFov?.(satellite.id, "sensor", val);
+                          onUpdateSatellite?.(satellite.id, {
+                            sensor: {
+                              ...satellite.sensor!,
+                              fovDeg: val
+                            }
+                          });
+                        }}
+                      />
+                      <Typography variant="caption" sx={{ color: '#f97316', fontWeight: 600 }}>&deg;</Typography>
+                    </Box>
+                  </Box>
+
+                  <Slider 
                     size="small"
-                    type="number"
-                    variant="outlined"
-                    sx={{ width: 80, '& .MuiInputBase-input': { p: 0.5, fontSize: '0.75rem' } }}
-                    key={`sensor-fov-${satellite.id}-${satellite.sensor.fovDeg}`}
-                    defaultValue={satellite.sensor.fovDeg}
-                    onBlur={(e) => onUpdateFov?.(satellite.id, "sensor", Number(e.target.value))}
+                    min={5}
+                    max={120}
+                    step={1}
+                    value={satellite.sensor.fovDeg ?? 60}
+                    onChange={(_, val) => {
+                      const numVal = val as number;
+                      onUpdateFov?.(satellite.id, "sensor", numVal);
+                      onUpdateSatellite?.(satellite.id, {
+                        sensor: {
+                          ...satellite.sensor!,
+                          fovDeg: numVal
+                        }
+                      });
+                    }}
+                    sx={{ color: '#f97316', my: 0.5 }}
                   />
-                  <Typography variant="caption" color="text.secondary">&deg;</Typography>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mt: 0.2 }}>
+                    <Typography variant="caption" sx={{ fontSize: '0.68rem', color: 'text.secondary' }}>
+                      Radar Swath Aperture
+                    </Typography>
+                    <Typography variant="caption" sx={{ fontSize: '0.68rem', color: '#f97316', fontWeight: 600 }}>
+                      {satellite.sensor.fovDeg}&deg; Swath
+                    </Typography>
+                  </Box>
                 </Box>
 
                 {/* Interactive Sensor Inclination Control with Live UI Feedback */}
@@ -134,11 +259,9 @@ export default function SatelliteInfoPanel({ satellite, onClose, onUpdateSatelli
                     const inc = satellite.sensor.inclinationDeg ?? satellite.sensor.inclinationDegree ?? 90;
                     const delta = inc - 90;
                     const mode = 
-                      Math.abs(delta) < 0.5 ? "Direct Nadir (Below)" :
-                      delta > 0 ? `Right Cross-Track (+${delta.toFixed(1)}°)` :
-                      `Left Cross-Track (${delta.toFixed(1)}°)`;
-                    const offNadirRad = Math.abs((delta * Math.PI) / 180);
-                    const ovalRatio = ((1.5 + 2.5 * Math.sin(offNadirRad)) / Math.max(1 - 0.2 * Math.sin(offNadirRad), 0.65)).toFixed(1);
+                      Math.abs(delta) < 0.5 ? "Direct Nadir (Below Sat)" :
+                      delta > 0 ? `Right Swath (+${delta.toFixed(1)}°)` :
+                      `Left Swath (${delta.toFixed(1)}°)`;
                     return (
                       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mt: 0.5 }}>
                         <Chip
@@ -154,7 +277,7 @@ export default function SatelliteInfoPanel({ satellite, onClose, onUpdateSatelli
                           }}
                         />
                         <Typography variant="caption" sx={{ fontSize: '0.68rem', color: 'text.secondary' }}>
-                          Swath: <strong>{ovalRatio}:1</strong> ({inc}°)
+                          Sensor Angle: <strong>{inc}°</strong>
                         </Typography>
                       </Box>
                     );

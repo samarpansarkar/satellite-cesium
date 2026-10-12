@@ -14,6 +14,7 @@ interface SidebarProps {
   satellites: SatelliteData[]; // Detailed data when loaded
   onUpdateSatellite?: (id: string, updatedData: Partial<SatelliteData>) => void;
   onUpdateSensorInclination?: (id: string, inclinationDeg: number) => void;
+  onUpdateFov?: (id: string, type: "camera" | "sensor", fovDeg: number) => void;
   onOpenInfo: (sat: SatelliteData) => void;
   onSelectAll: () => void;
   onClearAll: () => void;
@@ -30,6 +31,7 @@ export default function Sidebar({
   satellites = [],
   onUpdateSatellite,
   onUpdateSensorInclination,
+  onUpdateFov,
   onOpenInfo,
   onSelectAll,
   onClearAll,
@@ -50,9 +52,21 @@ export default function Sidebar({
           width: DRAWER_WIDTH,
           boxSizing: "border-box",
           bgcolor: "background.default",
-          '&::-webkit-scrollbar': { display: 'none' },
-          msOverflowStyle: 'none',
-          scrollbarWidth: 'none',
+          scrollbarWidth: "thin",
+          scrollbarColor: "rgba(56, 189, 248, 0.45) rgba(10, 25, 47, 0.3)",
+          "&::-webkit-scrollbar": {
+            width: "6px",
+          },
+          "&::-webkit-scrollbar-track": {
+            background: "rgba(10, 25, 47, 0.3)",
+          },
+          "&::-webkit-scrollbar-thumb": {
+            background: "rgba(56, 189, 248, 0.4)",
+            borderRadius: "4px",
+            "&:hover": {
+              background: "rgba(56, 189, 248, 0.7)",
+            },
+          },
         }
       }}
     >
@@ -163,10 +177,60 @@ export default function Sidebar({
                     </Typography>
 
                     {satData.camera && (
-                      <FormControlLabel
-                        control={<Switch size="small" checked={satData.camera.isActive} onChange={(e) => onUpdateSatellite?.(satData.id, { camera: { ...satData.camera!, isActive: e.target.checked } })} />}
-                        label={<Typography variant="body2" sx={{ color: 'text.primary' }}>Camera</Typography>}
-                      />
+                      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, bgcolor: 'rgba(56, 189, 248, 0.06)', p: 1, borderRadius: 1.5, my: 0.5, border: '1px solid rgba(56, 189, 248, 0.15)' }}>
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <FormControlLabel
+                            control={<Switch size="small" checked={satData.camera.isActive} onChange={(e) => onUpdateSatellite?.(satData.id, { camera: { ...satData.camera!, isActive: e.target.checked } })} />}
+                            label={<Typography variant="body2" sx={{ color: 'text.primary', fontWeight: 500 }}>Camera</Typography>}
+                          />
+                          <Typography variant="caption" sx={{ color: '#0284c7', fontWeight: 700, fontFamily: 'monospace' }}>
+                            {satData.camera.fovDeg}°
+                          </Typography>
+                        </Box>
+                        
+                        <Box sx={{ px: 0.5, mt: -0.5 }}>
+                          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 0.2 }}>
+                            <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.7rem' }}>
+                              FOV Angle:
+                            </Typography>
+                            <TextField
+                              size="small"
+                              type="number"
+                              variant="outlined"
+                              sx={{ width: 68, '& .MuiInputBase-input': { p: '1px 4px', fontSize: '0.72rem', textAlign: 'right' } }}
+                              value={satData.camera.fovDeg}
+                              onChange={(e) => {
+                                const val = parseFloat(e.target.value) || 0;
+                                onUpdateFov?.(satData.id, "camera", val);
+                                onUpdateSatellite?.(satData.id, {
+                                  camera: {
+                                    ...satData.camera!,
+                                    fovDeg: val
+                                  }
+                                });
+                              }}
+                            />
+                          </Box>
+                          <Slider
+                            size="small"
+                            min={5}
+                            max={120}
+                            step={1}
+                            value={satData.camera.fovDeg}
+                            onChange={(_, val) => {
+                              const numVal = val as number;
+                              onUpdateFov?.(satData.id, "camera", numVal);
+                              onUpdateSatellite?.(satData.id, {
+                                camera: {
+                                  ...satData.camera!,
+                                  fovDeg: numVal
+                                }
+                              });
+                            }}
+                            sx={{ color: '#0284c7', py: 0.5 }}
+                          />
+                        </Box>
+                      </Box>
                     )}
 
                     {satData.sensor && (
@@ -177,21 +241,66 @@ export default function Sidebar({
                             label={<Typography variant="body2" sx={{ color: 'text.primary', fontWeight: 500 }}>Sensor</Typography>}
                           />
                           <Typography variant="caption" sx={{ color: '#f97316', fontWeight: 700, fontFamily: 'monospace' }}>
-                            {(satData.sensor.inclinationDeg ?? satData.sensor.inclinationDegree ?? 0)}°
+                            {(satData.sensor.inclinationDeg ?? satData.sensor.inclinationDegree ?? 90)}°
                           </Typography>
                         </Box>
-                        
+
+                        {/* Sensor FOV Control */}
                         <Box sx={{ px: 0.5, mt: -0.5 }}>
                           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 0.2 }}>
                             <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.7rem' }}>
-                              Footprint Angle:
+                              FOV Angle:
                             </Typography>
                             <TextField
                               size="small"
                               type="number"
                               variant="outlined"
                               sx={{ width: 68, '& .MuiInputBase-input': { p: '1px 4px', fontSize: '0.72rem', textAlign: 'right' } }}
-                              value={satData.sensor.inclinationDeg ?? satData.sensor.inclinationDegree ?? 0}
+                              value={satData.sensor.fovDeg}
+                              onChange={(e) => {
+                                const val = parseFloat(e.target.value) || 0;
+                                onUpdateFov?.(satData.id, "sensor", val);
+                                onUpdateSatellite?.(satData.id, {
+                                  sensor: {
+                                    ...satData.sensor!,
+                                    fovDeg: val
+                                  }
+                                });
+                              }}
+                            />
+                          </Box>
+                          <Slider
+                            size="small"
+                            min={5}
+                            max={120}
+                            step={1}
+                            value={satData.sensor.fovDeg}
+                            onChange={(_, val) => {
+                              const numVal = val as number;
+                              onUpdateFov?.(satData.id, "sensor", numVal);
+                              onUpdateSatellite?.(satData.id, {
+                                sensor: {
+                                  ...satData.sensor!,
+                                  fovDeg: numVal
+                                }
+                              });
+                            }}
+                            sx={{ color: '#f97316', py: 0.5 }}
+                          />
+                        </Box>
+                        
+                        {/* Sensor Inclination / Steering Control */}
+                        <Box sx={{ px: 0.5, borderTop: '1px dashed rgba(249, 115, 22, 0.2)', pt: 0.5 }}>
+                          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 0.2 }}>
+                            <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.7rem' }}>
+                              Inclination (Aim):
+                            </Typography>
+                            <TextField
+                              size="small"
+                              type="number"
+                              variant="outlined"
+                              sx={{ width: 68, '& .MuiInputBase-input': { p: '1px 4px', fontSize: '0.72rem', textAlign: 'right' } }}
+                              value={satData.sensor.inclinationDeg ?? satData.sensor.inclinationDegree ?? 90}
                               onChange={(e) => {
                                 const val = parseFloat(e.target.value) || 0;
                                 onUpdateSensorInclination?.(satData.id, val);
@@ -210,7 +319,7 @@ export default function Sidebar({
                             min={0}
                             max={180}
                             step={0.5}
-                            value={satData.sensor.inclinationDeg ?? satData.sensor.inclinationDegree ?? 0}
+                            value={satData.sensor.inclinationDeg ?? satData.sensor.inclinationDegree ?? 90}
                             onChange={(_, val) => {
                               const numVal = val as number;
                               onUpdateSensorInclination?.(satData.id, numVal);
