@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Drawer, Box, Typography, List, ListItem, IconButton, ListItemIcon, Checkbox, ListItemText, Button, Collapse, Switch, FormControlLabel } from "@mui/material";
+import { Drawer, Box, Typography, List, ListItem, IconButton, ListItemIcon, Checkbox, ListItemText, Button, Collapse, Switch, FormControlLabel, TextField, Slider } from "@mui/material";
 import InfoIcon from "@mui/icons-material/Info";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import ExpandLessIcon from "@mui/icons-material/ExpandLess";
@@ -13,6 +13,7 @@ interface SidebarProps {
   onToggleName: (name: string) => void;
   satellites: SatelliteData[]; // Detailed data when loaded
   onUpdateSatellite?: (id: string, updatedData: Partial<SatelliteData>) => void;
+  onUpdateSensorInclination?: (id: string, inclinationDeg: number) => void;
   onOpenInfo: (sat: SatelliteData) => void;
   onSelectAll: () => void;
   onClearAll: () => void;
@@ -28,6 +29,7 @@ export default function Sidebar({
   onToggleName,
   satellites = [],
   onUpdateSatellite,
+  onUpdateSensorInclination,
   onOpenInfo,
   onSelectAll,
   onClearAll,
@@ -168,10 +170,62 @@ export default function Sidebar({
                     )}
 
                     {satData.sensor && (
-                      <FormControlLabel
-                        control={<Switch size="small" checked={satData.sensor.isActive} onChange={(e) => onUpdateSatellite?.(satData.id, { sensor: { ...satData.sensor!, isActive: e.target.checked } })} />}
-                        label={<Typography variant="body2" sx={{ color: 'text.primary' }}>Sensor</Typography>}
-                      />
+                      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, bgcolor: 'rgba(249, 115, 22, 0.06)', p: 1, borderRadius: 1.5, my: 0.5, border: '1px solid rgba(249, 115, 22, 0.15)' }}>
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <FormControlLabel
+                            control={<Switch size="small" checked={satData.sensor.isActive} onChange={(e) => onUpdateSatellite?.(satData.id, { sensor: { ...satData.sensor!, isActive: e.target.checked } })} />}
+                            label={<Typography variant="body2" sx={{ color: 'text.primary', fontWeight: 500 }}>Sensor</Typography>}
+                          />
+                          <Typography variant="caption" sx={{ color: '#f97316', fontWeight: 700, fontFamily: 'monospace' }}>
+                            {(satData.sensor.inclinationDeg ?? satData.sensor.inclinationDegree ?? 0)}°
+                          </Typography>
+                        </Box>
+                        
+                        <Box sx={{ px: 0.5, mt: -0.5 }}>
+                          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 0.2 }}>
+                            <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.7rem' }}>
+                              Footprint Angle:
+                            </Typography>
+                            <TextField
+                              size="small"
+                              type="number"
+                              variant="outlined"
+                              sx={{ width: 68, '& .MuiInputBase-input': { p: '1px 4px', fontSize: '0.72rem', textAlign: 'right' } }}
+                              value={satData.sensor.inclinationDeg ?? satData.sensor.inclinationDegree ?? 0}
+                              onChange={(e) => {
+                                const val = parseFloat(e.target.value) || 0;
+                                onUpdateSensorInclination?.(satData.id, val);
+                                onUpdateSatellite?.(satData.id, {
+                                  sensor: {
+                                    ...satData.sensor!,
+                                    inclinationDeg: val,
+                                    inclinationDegree: val
+                                  }
+                                });
+                              }}
+                            />
+                          </Box>
+                          <Slider
+                            size="small"
+                            min={0}
+                            max={180}
+                            step={0.5}
+                            value={satData.sensor.inclinationDeg ?? satData.sensor.inclinationDegree ?? 0}
+                            onChange={(_, val) => {
+                              const numVal = val as number;
+                              onUpdateSensorInclination?.(satData.id, numVal);
+                              onUpdateSatellite?.(satData.id, {
+                                sensor: {
+                                  ...satData.sensor!,
+                                  inclinationDeg: numVal,
+                                  inclinationDegree: numVal
+                                }
+                              });
+                            }}
+                            sx={{ color: '#f97316', py: 0.5 }}
+                          />
+                        </Box>
+                      </Box>
                     )}
 
                     {satData.communication && (

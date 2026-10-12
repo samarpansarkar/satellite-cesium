@@ -11,6 +11,8 @@ export interface SystemPayload {
 export interface CameraSensorPayload {
   isActive: boolean;
   fovDeg: number;
+  inclinationDeg?: number;
+  inclinationDegree?: number;
 }
 
 export interface CommunicationPayload {
@@ -105,7 +107,11 @@ export function useSatellites() {
           speedMultiplier: sat.speedMultiplier || 1.0,
           periodSec: sat.periodSec || 90,
           camera: sat.camera,
-          sensor: sat.sensor,
+          sensor: sat.sensor ? {
+            ...sat.sensor,
+            inclinationDeg: sat.sensor.inclinationDeg ?? sat.sensor.inclinationDegree,
+            inclinationDegree: sat.sensor.inclinationDegree ?? sat.sensor.inclinationDeg,
+          } : undefined,
           communication: sat.communication,
           tleLine1: sat.TLE_LINE1,
           tleLine2: sat.TLE_LINE2,
@@ -155,6 +161,23 @@ export function useSatellites() {
     }
   }, [post]);
 
+  const updateSensorInclination = useCallback((id: string, inclinationDeg: number) => {
+    // Purely local UI state update - no API call
+    setSatellites(prev => prev.map(sat => {
+      if (sat.id === id && sat.sensor) {
+        return {
+          ...sat,
+          sensor: {
+            ...sat.sensor,
+            inclinationDeg,
+            inclinationDegree: inclinationDeg
+          }
+        };
+      }
+      return sat;
+    }));
+  }, []);
+
   return {
     availableNames,
     satellites,
@@ -166,5 +189,6 @@ export function useSatellites() {
     duplicateSatellite,
     resetToDefaults,
     updateAttachmentFov,
+    updateSensorInclination,
   };
 }

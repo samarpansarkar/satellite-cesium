@@ -58,6 +58,89 @@ function calculateSatPosition(sat: SatelliteData, timeSec: number): Cesium.Carte
   return new Cesium.Cartesian3(x, y, z);
 }
 
+// Caching system for per-frame optimizations
+const frameCache = {
+  timeSec: -1,
+  positions: new Map<string, Cesium.Cartesian3>(),
+  subPositions: new Map<string, Cesium.Cartesian3>()
+};
+
+function getCachedSatPosition(sat: SatelliteData, timeSec: number): Cesium.Cartesian3 {
+  if (frameCache.timeSec !== timeSec) {
+    frameCache.timeSec = timeSec;
+    frameCache.positions.clear();
+    frameCache.subPositions.clear();
+  }
+  let pos = frameCache.positions.get(sat.id);
+  if (!pos) {
+    pos = calculateSatPosition(sat, timeSec);
+    frameCache.positions.set(sat.id, pos);
+  }
+  return pos;
+}
+
+function getCachedSubPosition(sat: SatelliteData, timeSec: number): Cesium.Cartesian3 {
+  let subPos = frameCache.subPositions.get(sat.id);
+  if (!subPos) {
+    const pos = getCachedSatPosition(sat, timeSec);
+    const earthRadius = 6371000;
+    const mag = Cesium.Cartesian3.magnitude(pos);
+    subPos = Cesium.Cartesian3.multiplyByScalar(pos, earthRadius / mag, new Cesium.Cartesian3());
+    frameCache.subPositions.set(sat.id, subPos);
+  }
+  return subPos;
+}
+
+// Compute the ground area scanned by the sensor based on its attachment inclination angle.
+// 90° points directly nadir (directly below satellite).
+// Angles deviating from 90° point off-nadir (cross-track scan), steering the footprint to scan different ground areas.
+function getSensorFootprintCenter(sat: SatelliteData, timeSec: number): Cesium.Cartesian3 {
+  const subPos = getCachedSubPosition(sat, timeSec);
+  const inc = sat.sensor?.inclinationDeg ?? sat.sensor?.inclinationDegree ?? 90;
+  
+  // Angle difference from nadir (90° = 0 offset, perfectly below)
+  const deltaDeg = inc - 90;
+  if (Math.abs(deltaDeg) < 0.05) {
+    return subPos;
+  }
+
+  const satPos = getCachedSatPosition(sat, timeSec);
+  const altitudeMeters = sat.altitudeKm * 1000;
+  const earthRadius = 6371000;
+
+  // Off-nadir pointing angle in radians
+  const deltaRad = Cesium.Math.toRadians(deltaDeg);
+  
+  // Ground displacement distance across-track: h * tan(off-nadir angle)
+  // Clamped to avoid scanning past the earth horizon
+  const maxDisplacement = Math.min(altitudeMeters * 3.5, 2500000);
+  const displacement = Math.max(-maxDisplacement, Math.min(maxDisplacement, altitudeMeters * Math.tan(deltaRad)));
+
+  // Compute unit normal vectors to offset cross-track (perpendicular to orbit & position)
+  // Up vector (radial from Earth center)
+  const up = Cesium.Cartesian3.normalize(satPos, new Cesium.Cartesian3());
+
+  // Tangent / velocity approximation by checking slight time advance
+  const nextSatPos = calculateSatPosition(sat, timeSec + 0.1);
+  const vel = Cesium.Cartesian3.subtract(nextSatPos, satPos, new Cesium.Cartesian3());
+  Cesium.Cartesian3.normalize(vel, vel);
+
+  // Cross-track direction = cross(vel, up)
+  const crossTrack = Cesium.Cartesian3.cross(vel, up, new Cesium.Cartesian3());
+  Cesium.Cartesian3.normalize(crossTrack, crossTrack);
+
+  // Calculate new target position on surface
+  const offsetPos = Cesium.Cartesian3.add(
+    subPos,
+    Cesium.Cartesian3.multiplyByScalar(crossTrack, displacement, new Cesium.Cartesian3()),
+    new Cesium.Cartesian3()
+  );
+
+  // Re-project onto Earth surface sphere
+  const offsetMag = Cesium.Cartesian3.magnitude(offsetPos);
+  return Cesium.Cartesian3.multiplyByScalar(offsetPos, earthRadius / offsetMag, new Cesium.Cartesian3());
+}
+
 interface CesiumViewerProps {
   satellites?: SatelliteData[];
   hiddenSatellites: string[];
@@ -114,8 +197,8 @@ export default function CesiumViewer({
     });
   }, []);
 
-  const satellitesRef = useRef(satellites);
-  satellitesRef.current = satellites;
+  const satMapRef = useRef(new Map<string, SatelliteData>());
+  satMapRef.current = new Map(satellites.map(s => [s.id, s]));
 
   const satIds = satellites.map(s => s.id).join(',');
 
@@ -124,7 +207,8 @@ export default function CesiumViewer({
     return satellites.map((initialSat) => {
       const color = Cesium.Color.fromCssColorString("#38bdf8");
 
-      const getSat = () => satellitesRef.current.find(s => s.id === initialSat.id) || initialSat;
+      // O(1) lookup instead of O(N)
+      const getSat = () => satMapRef.current.get(initialSat.id) || initialSat;
 
       return {
         id: initialSat.id, // Need ID for React keys and filtering
@@ -132,60 +216,88 @@ export default function CesiumViewer({
         path: generateOrbitPath(initialSat.altitudeKm, initialSat.inclinationDeg),
         cesiumColor: color,
         // CallbackProperty queries the out-of-band animation clock directly
-        positionProperty: new Cesium.CallbackProperty(() => calculateSatPosition(getSat(), animClock.elapsedTime), false),
-        subPositionProperty: new Cesium.CallbackProperty(() => {
-          const pos = calculateSatPosition(getSat(), animClock.elapsedTime);
-          const earthRadius = 6371000;
-          const mag = Cesium.Cartesian3.magnitude(pos);
-          return Cesium.Cartesian3.multiplyByScalar(pos, earthRadius / mag, new Cesium.Cartesian3());
-        }, false),
+        positionProperty: new Cesium.CallbackProperty(() => getCachedSatPosition(getSat(), animClock.elapsedTime), false),
+        subPositionProperty: new Cesium.CallbackProperty(() => getCachedSubPosition(getSat(), animClock.elapsedTime), false),
 
         cameraWithProps: initialSat.camera ? {
           beamProperty: new Cesium.CallbackProperty(() => {
             const currentSat = getSat();
-            const pos = calculateSatPosition(currentSat, animClock.elapsedTime);
-            const earthRadius = 6371000;
-            const mag = Cesium.Cartesian3.magnitude(pos);
-            const subPos = Cesium.Cartesian3.multiplyByScalar(pos, earthRadius / mag, new Cesium.Cartesian3());
-            return [pos, subPos];
+            return [
+              getCachedSatPosition(currentSat, animClock.elapsedTime), 
+              getCachedSubPosition(currentSat, animClock.elapsedTime)
+            ];
           }, false),
           subPositionProperty: new Cesium.CallbackProperty(() => {
             const currentSat = getSat();
-            const pos = calculateSatPosition(currentSat, animClock.elapsedTime);
-            const earthRadius = 6371000;
-            const mag = Cesium.Cartesian3.magnitude(pos);
-            return Cesium.Cartesian3.multiplyByScalar(pos, earthRadius / mag, new Cesium.Cartesian3());
+            return getCachedSubPosition(currentSat, animClock.elapsedTime);
           }, false),
           radiusProperty: new Cesium.CallbackProperty(() => {
             const currentSat = getSat();
             const fov = currentSat.camera?.fovDeg || 30; // Default 30 deg FOV
             const altitudeMeters = currentSat.altitudeKm * 1000;
-            const radius = altitudeMeters * Math.tan(Cesium.Math.toRadians(fov / 2));
-            return Math.max(radius, 50000); // Minimum 50km radius for visibility
+            const radius = Math.max(altitudeMeters * Math.tan(Cesium.Math.toRadians(fov / 2)), 50000);
+            return radius;
           }, false)
         } : null,
 
         sensorWithProps: initialSat.sensor ? {
+          footprintCenterProperty: new Cesium.CallbackProperty(() => {
+            const currentSat = getSat();
+            return getSensorFootprintCenter(currentSat, animClock.elapsedTime);
+          }, false),
+          beamProperty: new Cesium.CallbackProperty(() => {
+            const currentSat = getSat();
+            const satPos = getCachedSatPosition(currentSat, animClock.elapsedTime);
+            const targetPos = getSensorFootprintCenter(currentSat, animClock.elapsedTime);
+            return [satPos, targetPos];
+          }, false),
           radiusProperty: new Cesium.CallbackProperty(() => {
             const currentSat = getSat();
             const fov = currentSat.sensor?.fovDeg || 60; // Default 60 deg FOV for sensors
             const altitudeMeters = currentSat.altitudeKm * 1000;
-            const radius = altitudeMeters * Math.tan(Cesium.Math.toRadians(fov / 2));
-            return Math.max(radius, 100000); // Minimum 100km radius
-          }, false)
+            const radius = Math.max(altitudeMeters * Math.tan(Cesium.Math.toRadians(fov / 2)), 100000);
+            return radius;
+          }, false),
+          semiMajorProperty: new Cesium.CallbackProperty(() => {
+            const currentSat = getSat();
+            const fov = currentSat.sensor?.fovDeg || 60;
+            const inc = currentSat.sensor?.inclinationDeg ?? currentSat.sensor?.inclinationDegree ?? 90;
+            const altitudeMeters = currentSat.altitudeKm * 1000;
+            const baseRadius = Math.max(altitudeMeters * Math.tan(Cesium.Math.toRadians(fov / 2)), 100000);
+            // Off-nadir angle (0 when 90°, increasing as it tilts away from nadir)
+            const offNadirRad = Math.abs(Cesium.Math.toRadians(inc - 90));
+            // Oval elongation increases as sensor tilts away from vertical nadir (90°)
+            const tiltFactor = 1.5 + 2.5 * Math.sin(offNadirRad);
+            return baseRadius * tiltFactor;
+          }, false),
+          semiMinorProperty: new Cesium.CallbackProperty(() => {
+            const currentSat = getSat();
+            const fov = currentSat.sensor?.fovDeg || 60;
+            const inc = currentSat.sensor?.inclinationDeg ?? currentSat.sensor?.inclinationDegree ?? 90;
+            const altitudeMeters = currentSat.altitudeKm * 1000;
+            const baseRadius = Math.max(altitudeMeters * Math.tan(Cesium.Math.toRadians(fov / 2)), 100000);
+            const offNadirRad = Math.abs(Cesium.Math.toRadians(inc - 90));
+            const compression = Math.max(1 - 0.2 * Math.sin(offNadirRad), 0.65);
+            return baseRadius * compression;
+          }, false),
+          rotationProperty: new Cesium.CallbackProperty(() => {
+            const currentSat = getSat();
+            const inc = currentSat.sensor?.inclinationDeg ?? currentSat.sensor?.inclinationDegree ?? 90;
+            return Cesium.Math.toRadians(inc);
+          }, false),
         } : null,
 
         commWithProps: initialSat.communication ? {
           linkProperty: new Cesium.CallbackProperty(() => {
             const currentSat = getSat();
-            const pos = calculateSatPosition(currentSat, animClock.elapsedTime);
+            const pos = getCachedSatPosition(currentSat, animClock.elapsedTime);
             const currentComm = currentSat.communication;
             const target = (currentComm && currentComm.targetStation) ? Cesium.Cartesian3.fromDegrees(currentComm.targetStation[0], currentComm.targetStation[1], 0) : GROUND_STATION;
             return [pos, target];
           }, false),
           linkShowProperty: new Cesium.CallbackProperty(() => {
             const currentSat = getSat();
-            const pos = calculateSatPosition(currentSat, animClock.elapsedTime);
+            const pos = getCachedSatPosition(currentSat, animClock.elapsedTime);
             const currentComm = currentSat.communication;
             const target = (currentComm && currentComm.targetStation) ? Cesium.Cartesian3.fromDegrees(currentComm.targetStation[0], currentComm.targetStation[1], 0) : GROUND_STATION;
             const distance = Cesium.Cartesian3.distance(pos, target);
@@ -262,8 +374,8 @@ export default function CesiumViewer({
         )}
 
         {visibleSats.map((orbit) => {
-          // Look up active state dynamically from the original satellites array
-          const liveSat = satellites.find(s => s.id === orbit.id);
+          // Look up active state dynamically from the O(1) map
+          const liveSat = satMapRef.current.get(orbit.id);
           if (!liveSat) return null;
 
           return (
@@ -299,19 +411,33 @@ export default function CesiumViewer({
                 />
               </Entity>
 
-              {/* Sensor Radar Pulse Effects */}
+              {/* Sensor Radar Pulse & Swath Effects */}
               {orbit.sensorWithProps && liveSat.sensor?.isActive && (
-                <Entity position={orbit.positionProperty as unknown as Cesium.Cartesian3}>
-                  <EllipseGraphics
-                    height={0}
-                    semiMajorAxis={orbit.sensorWithProps.radiusProperty as unknown as Cesium.Property}
-                    semiMinorAxis={orbit.sensorWithProps.radiusProperty as unknown as Cesium.Property}
-                    material={new Cesium.ColorMaterialProperty(Cesium.Color.ORANGE.withAlpha(0.2))}
-                    outline={true}
-                    outlineColor={Cesium.Color.ORANGE.withAlpha(1.0)}
-                    outlineWidth={4}
-                  />
-                </Entity>
+                <React.Fragment>
+                  <Entity position={orbit.sensorWithProps.footprintCenterProperty as unknown as Cesium.Cartesian3}>
+                    <EllipseGraphics
+                      height={0}
+                      semiMajorAxis={orbit.sensorWithProps.semiMajorProperty as unknown as Cesium.Property}
+                      semiMinorAxis={orbit.sensorWithProps.semiMinorProperty as unknown as Cesium.Property}
+                      rotation={orbit.sensorWithProps.rotationProperty as unknown as Cesium.Property}
+                      material={new Cesium.ColorMaterialProperty(Cesium.Color.ORANGE.withAlpha(0.25))}
+                      outline={true}
+                      outlineColor={Cesium.Color.ORANGE.withAlpha(0.95)}
+                      outlineWidth={3}
+                    />
+                  </Entity>
+                  <Entity>
+                    <PolylineGraphics
+                      positions={orbit.sensorWithProps.beamProperty as unknown as Cesium.Cartesian3[]}
+                      width={2.5}
+                      arcType={Cesium.ArcType.NONE}
+                      material={new Cesium.PolylineDashMaterialProperty({
+                        color: Cesium.Color.ORANGE.withAlpha(0.75),
+                        dashLength: 25.0,
+                      })}
+                    />
+                  </Entity>
+                </React.Fragment>
               )}
 
               {/* Camera Scanner Cone Effects */}
