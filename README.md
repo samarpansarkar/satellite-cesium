@@ -458,6 +458,121 @@ The application will automatically register the satellite in the sidebar, calcul
 
 ---
 
+## 🐳 Docker Terrain / Tile Server Integration
+
+Orbit Tracker supports swapping the default offline Natural Earth basemap with tiles served by a local Docker container running at `http://localhost:8080`. Four provider types are pre-wired in [`components/CesiumViewer.tsx`](./components/CesiumViewer.tsx) — uncomment the one that matches your server.
+
+### Step 1 — Identify your server type
+
+Open `http://localhost:8080` in a browser after starting the Docker container and look for clues:
+
+| What you see | Your server type |
+| :--- | :--- |
+| A directory listing of `z/x/y` folders or `.png` / `.jpg` tiles | **Option A — XYZ** |
+| A `tilemapresource.xml` file or `/tms/1.0.0/` path | **Option B — TMS** |
+| A `layer.json` file and `.terrain` files | **Option C — Cesium Terrain** |
+| A `GetCapabilities` XML response | **Option D — WMS** |
+
+---
+
+### Option A — XYZ Raster Tiles (PNG / JPEG)
+
+Standard slippy-map tile format used by most modern tile servers (Martin, TileServer-GL, MBTiles, etc.).
+
+**URL pattern:** `http://localhost:8080/tiles/{z}/{x}/{y}.png`
+
+```typescript
+// In CesiumViewer.tsx — find `dockerXYZProvider` and use it in the JSX:
+<ImageryLayer imageryProvider={dockerXYZProvider} />
+```
+
+> **URL adjustment:** If your server uses a different path (e.g. `/{z}/{x}/{y}.jpg` or `/api/tiles/...`), edit the `url` field inside the `dockerXYZProvider` `useMemo` block.
+
+---
+
+### Option B — TMS (Tile Map Service)
+
+Used by MapProxy, OSGeo TileCache, and GDAL2Tiles output. The root URL must contain a `tilemapresource.xml` file.
+
+**URL pattern:** `http://localhost:8080/tms/1.0.0/imagery/`
+
+```typescript
+// In CesiumViewer.tsx — find `dockerTMSProvider` and use it:
+<ImageryLayer imageryProvider={await dockerTMSProvider} />
+```
+
+> **Note:** `TileMapServiceImageryProvider.fromUrl()` returns a Promise, so `await` is required. Use it inside an async `useEffect` or with React Suspense.
+
+---
+
+### Option C — Cesium Quantized-Mesh Terrain (3D Elevation)
+
+Used when your Docker server provides actual 3D elevation data (height maps), not imagery. This controls the shape of terrain mountains and valleys, not the colour texture.
+
+**Compatible servers:** Cesium Terrain Server, py3dtiles, Cesium-Terrain-Builder, Tegola.
+
+**URL pattern:** `http://localhost:8080/tilesets/terrain/` (must contain `layer.json`)
+
+```typescript
+// In CesiumViewer.tsx — find `dockerTerrainProvider` and pass it to <Globe>:
+<Globe terrainProvider={await dockerTerrainProvider} />
+```
+
+> **Note:** This is a terrain provider, not an imagery provider. It works alongside any of the imagery options above. Enable `requestVertexNormals: true` (already set) for realistic lighting on slopes.
+
+---
+
+### Option D — WMS (Web Map Service)
+
+Used with OGC-compliant servers such as GeoServer, MapServer, or QGIS Server.
+
+**Endpoint:** `http://localhost:8080/wms?SERVICE=WMS&REQUEST=GetCapabilities`
+
+```typescript
+// In CesiumViewer.tsx — find `dockerWMSProvider`, set the layer name, then use it:
+<ImageryLayer imageryProvider={dockerWMSProvider} />
+```
+
+> **Layer name:** Open `http://localhost:8080/wms?SERVICE=WMS&REQUEST=GetCapabilities` and find the correct `<Layer><Name>` value. Update the `layers` field in the `dockerWMSProvider` block.
+
+---
+
+### Step 2 — Activate the provider in JSX
+
+In [`CesiumViewer.tsx`](./components/CesiumViewer.tsx), find the existing `<ImageryLayer>` that renders the base map:
+
+```tsx
+{/* Current offline base map */}
+<ImageryLayer imageryProvider={naturalEarthProvider} />
+
+{/* Replace the line above with your chosen provider, e.g.: */}
+<ImageryLayer imageryProvider={dockerXYZProvider} />
+```
+
+To layer the grid overlay **on top** of the Docker imagery, keep the `earthGridOverlayProvider` layer below it:
+
+```tsx
+<ImageryLayer imageryProvider={dockerXYZProvider} />
+<ImageryLayer imageryProvider={earthGridOverlayProvider} show={showGrid} />
+```
+
+---
+
+### Step 3 — CORS (if tiles are blocked)
+
+If the browser console shows `CORS` errors when loading tiles, add this header to your Docker server config:
+
+```
+Access-Control-Allow-Origin: *
+```
+
+For **nginx-based** tile servers, add inside the `location` block:
+```nginx
+add_header Access-Control-Allow-Origin *;
+```
+
+---
+
 ## 📜 License & Credits
 
 - **CesiumJS**: Licensed under the Apache 2.0 License.

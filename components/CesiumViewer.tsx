@@ -213,6 +213,83 @@ export default function CesiumViewer({
     });
   }, []);
 
+  // ─────────────────────────────────────────────────────────────────────────────
+  // Docker Terrain / Tile Server  (http://localhost:8080)
+  // Uncomment exactly ONE block that matches your server type.
+  // ─────────────────────────────────────────────────────────────────────────────
+
+  // ── OPTION A: XYZ Raster Tiles (PNG/JPEG) ────────────────────────────────────
+  // Use when the server serves standard slippy-map tiles:
+  //   GET http://localhost:8080/tiles/{z}/{x}/{y}.png
+  // Adjust the URL template to match your server's actual path.
+  const dockerXYZProvider = useMemo(() => {
+    if (typeof window === "undefined") return undefined;
+    return new Cesium.UrlTemplateImageryProvider({
+      url: "http://localhost:8080/tiles/{z}/{x}/{y}.png",
+      // url: "http://localhost:8080/{z}/{x}/{y}.jpg",   // JPEG variant
+      minimumLevel: 0,
+      maximumLevel: 18,
+      tilingScheme: new Cesium.WebMercatorTilingScheme(),
+      credit: new Cesium.Credit("Docker Tile Server"),
+    });
+  }, []);
+
+  // ── OPTION B: TMS (Tile Map Service) ─────────────────────────────────────────
+  // Use when the server follows the TMS 1.0 spec (OSGeo/MapProxy style):
+  //   GET http://localhost:8080/tms/1.0.0/imagery/{z}/{x}/{y}.png
+  // The URL should point to the root of the tileset (directory with tilemapresource.xml).
+  const dockerTMSProvider = useMemo(() => {
+    if (typeof window === "undefined") return undefined;
+    return Cesium.TileMapServiceImageryProvider.fromUrl(
+      "http://localhost:8080/tms/1.0.0/imagery/",
+      {
+        fileExtension: "png",
+        minimumLevel: 0,
+        maximumLevel: 18,
+        credit: new Cesium.Credit("Docker TMS Server"),
+      }
+    );
+  }, []);
+
+  // ── OPTION C: Cesium Quantized-Mesh Terrain ───────────────────────────────────
+  // Use when the server provides 3D terrain elevation (e.g. Cesium Terrain Server,
+  // Cesium-Terrain-Builder output, or tilesets from py3dtiles / terriajs-server):
+  //   GET http://localhost:8080/tilesets/terrain/{z}/{x}/{y}.terrain
+  // This replaces the Globe terrain, not the imagery.
+  const dockerTerrainProvider = useMemo(() => {
+    if (typeof window === "undefined") return undefined;
+    return Cesium.CesiumTerrainProvider.fromUrl(
+      "http://localhost:8080/tilesets/terrain/",
+      {
+        requestVertexNormals: true,  // enables lighting/slope shading
+        requestWaterMask: false,
+        credit: new Cesium.Credit("Docker Terrain Server"),
+      }
+    );
+  }, []);
+
+  // ── OPTION D: WMS (Web Map Service) ──────────────────────────────────────────
+  // Use when the server exposes an OGC WMS endpoint (GeoServer, MapServer, QGIS Server):
+  //   GET http://localhost:8080/wms?SERVICE=WMS&REQUEST=GetMap&...
+  // Set `layers` to the layer name published on your WMS server.
+  const dockerWMSProvider = useMemo(() => {
+    if (typeof window === "undefined") return undefined;
+    return new Cesium.WebMapServiceImageryProvider({
+      url: "http://localhost:8080/wms",
+      layers: "earth_imagery",          // ← change to your WMS layer name
+      parameters: {
+        service: "WMS",
+        version: "1.1.1",
+        request: "GetMap",
+        transparent: "false",
+        format: "image/png",
+      },
+      minimumLevel: 0,
+      maximumLevel: 18,
+      credit: new Cesium.Credit("Docker WMS Server"),
+    });
+  }, []);
+
   const satMapRef = useRef(new Map<string, SatelliteData>());
   satMapRef.current = new Map(satellites.map(s => [s.id, s]));
 
