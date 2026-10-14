@@ -33,6 +33,7 @@ interface CesiumWrapperProps {
   satellites?: SatelliteData[];
   hiddenSatellites: string[];
   simulationSpeed: number;
+  isPlaying?: boolean;
   showOrbits: boolean;
   baseMapMode: "natural" | "grid";
 }

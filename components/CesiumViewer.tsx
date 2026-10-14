@@ -145,6 +145,7 @@ interface CesiumViewerProps {
   satellites?: SatelliteData[];
   hiddenSatellites: string[];
   simulationSpeed: number;
+  isPlaying?: boolean;
   showOrbits: boolean;
   baseMapMode: "natural" | "grid";
 }
@@ -153,15 +154,16 @@ export default function CesiumViewer({
   satellites = [],
   hiddenSatellites,
   simulationSpeed,
+  isPlaying = true,
   showOrbits,
   baseMapMode,
 }: CesiumViewerProps) {
   const viewerRef = useRef<CesiumComponentRef<Cesium.Viewer>>(null);
 
-  // Keep animation clock speed in sync with prop
+  // Keep animation clock speed in sync with simulationSpeed and isPlaying
   useEffect(() => {
-    animClock.speed = simulationSpeed;
-  }, [simulationSpeed]);
+    animClock.speed = isPlaying ? simulationSpeed : 0;
+  }, [simulationSpeed, isPlaying]);
 
   useEffect(() => {
     let lastTime = performance.now();

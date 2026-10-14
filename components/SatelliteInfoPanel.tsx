@@ -1,17 +1,29 @@
 import React, { useState, useEffect } from 'react';
-import { Card, CardHeader, CardContent, Typography, IconButton, Divider, Box, Switch, FormControlLabel, TextField, Slider, Chip } from "@mui/material";
+import { Card, CardHeader, CardContent, Typography, IconButton, Divider, Box, Switch, FormControlLabel, TextField, Slider, Chip, Tooltip } from "@mui/material";
 import CloseIcon from "@mui/icons-material/Close";
+import PlayArrowIcon from "@mui/icons-material/PlayArrow";
+import PauseIcon from "@mui/icons-material/Pause";
 import { SatelliteData } from "@/lib/satellites";
 
 interface SatelliteInfoPanelProps {
   satellite: SatelliteData | null;
   onClose: () => void;
+  isPlaying?: boolean;
+  onTogglePlayPause?: () => void;
   onUpdateSatellite?: (id: string, updatedData: Partial<SatelliteData>) => void;
   onUpdateFov?: (id: string, type: "camera" | "sensor", fovDeg: number) => void;
   onUpdateSensorInclination?: (id: string, inclinationDeg: number) => void;
 }
 
-export default function SatelliteInfoPanel({ satellite, onClose, onUpdateSatellite, onUpdateFov, onUpdateSensorInclination }: SatelliteInfoPanelProps) {
+export default function SatelliteInfoPanel({ 
+  satellite, 
+  onClose, 
+  isPlaying = true, 
+  onTogglePlayPause,
+  onUpdateSatellite, 
+  onUpdateFov, 
+  onUpdateSensorInclination 
+}: SatelliteInfoPanelProps) {
   if (!satellite) return null;
 
   return (
@@ -34,7 +46,33 @@ export default function SatelliteInfoPanel({ satellite, onClose, onUpdateSatelli
       <CardHeader
         title={<Typography variant="subtitle1" sx={{ fontWeight: "bold", color: '#38bdf8' }}>{satellite.name}</Typography>}
         subheader={satellite.type}
-        action={<IconButton aria-label="close" onClick={onClose}><CloseIcon /></IconButton>}
+        action={
+          <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
+            {onTogglePlayPause && (
+              <Tooltip title={isPlaying ? "Pause simulation" : "Resume simulation"}>
+                <IconButton
+                  aria-label={isPlaying ? "pause simulation" : "play simulation"}
+                  size="small"
+                  onClick={onTogglePlayPause}
+                  sx={{
+                    bgcolor: isPlaying ? "rgba(56, 189, 248, 0.12)" : "rgba(255, 255, 255, 0.08)",
+                    border: "1px solid",
+                    borderColor: isPlaying ? "rgba(56, 189, 248, 0.4)" : "divider",
+                    color: isPlaying ? "#38bdf8" : "text.secondary",
+                    "&:hover": {
+                      bgcolor: isPlaying ? "rgba(56, 189, 248, 0.25)" : "rgba(255, 255, 255, 0.15)",
+                    },
+                    width: 30,
+                    height: 30,
+                  }}
+                >
+                  {isPlaying ? <PauseIcon sx={{ fontSize: 18 }} /> : <PlayArrowIcon sx={{ fontSize: 18 }} />}
+                </IconButton>
+              </Tooltip>
+            )}
+            <IconButton aria-label="close" onClick={onClose}><CloseIcon /></IconButton>
+          </Box>
+        }
         sx={{ pb: 1, flexShrink: 0 }}
       />
       <Divider />

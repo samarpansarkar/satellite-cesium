@@ -17,8 +17,28 @@ export default function Home() {
   const selectedSatInfo = satellites.find(s => s.id === selectedSatId) || null;
 
   const [simulationSpeed, setSimulationSpeed] = useState<number>(1);
+  const [isPlaying, setIsPlaying] = useState<boolean>(true);
   const [showOrbits, setShowOrbits] = useState<boolean>(true);
   const [baseMapMode, setBaseMapMode] = useState<"natural" | "grid">("natural");
+
+  const handleTogglePlayPause = () => {
+    setIsPlaying((prev) => {
+      const next = !prev;
+      if (next && simulationSpeed === 0) {
+        setSimulationSpeed(1);
+      }
+      return next;
+    });
+  };
+
+  const handleSimulationSpeedChange = (speed: number) => {
+    setSimulationSpeed(speed);
+    if (speed > 0 && !isPlaying) {
+      setIsPlaying(true);
+    } else if (speed === 0) {
+      setIsPlaying(false);
+    }
+  };
 
   const handleToggleName = (name: string) => {
     setSelectedNames((prev) => {
@@ -65,6 +85,7 @@ export default function Home() {
             satellites={satellites}
             hiddenSatellites={[]} // We don't need hiddenSatellites anymore, as unselected ones just won't be fetched
             simulationSpeed={simulationSpeed}
+            isPlaying={isPlaying}
             showOrbits={showOrbits}
             baseMapMode={baseMapMode}
           />
@@ -72,6 +93,8 @@ export default function Home() {
           <SatelliteInfoPanel 
             satellite={selectedSatInfo} 
             onClose={() => setSelectedSatId(null)} 
+            isPlaying={isPlaying}
+            onTogglePlayPause={handleTogglePlayPause}
             onUpdateSatellite={updateSatellite}
             onUpdateFov={updateAttachmentFov}
             onUpdateSensorInclination={updateSensorInclination}
@@ -80,7 +103,9 @@ export default function Home() {
 
         <FooterControls 
           simulationSpeed={simulationSpeed} 
-          onSimulationSpeedChange={setSimulationSpeed} 
+          onSimulationSpeedChange={handleSimulationSpeedChange} 
+          isPlaying={isPlaying}
+          onTogglePlayPause={handleTogglePlayPause}
           showOrbits={showOrbits} 
           onShowOrbitsChange={setShowOrbits} 
           baseMapMode={baseMapMode} 
