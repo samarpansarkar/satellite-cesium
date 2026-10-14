@@ -11,6 +11,8 @@ interface FooterControlsProps {
   onTogglePlayPause?: () => void;
   showOrbits: boolean;
   onShowOrbitsChange: (show: boolean) => void;
+  showGrid?: boolean;
+  onShowGridChange?: (show: boolean) => void;
   baseMapMode: "natural" | "grid";
   onBaseMapChange: (mode: "natural" | "grid") => void;
 }
@@ -19,6 +21,7 @@ export default function FooterControls({
   simulationSpeed, onSimulationSpeedChange,
   isPlaying = true, onTogglePlayPause,
   showOrbits, onShowOrbitsChange,
+  showGrid = true, onShowGridChange,
   baseMapMode, onBaseMapChange
 }: FooterControlsProps) {
   return (
@@ -55,10 +58,16 @@ export default function FooterControls({
         </Typography>
       </Box>
       <Divider orientation="vertical" flexItem variant="middle" sx={{ my: 1.5 }} />
-      <FormControlLabel
-        control={<Switch checked={showOrbits} onChange={(e) => onShowOrbitsChange(e.target.checked)} color="primary" size="small" />}
-        label={<Typography variant="body2">Show Orbits</Typography>} sx={{ m: 0 }}
-      />
+      <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
+        <FormControlLabel
+          control={<Switch checked={showOrbits} onChange={(e) => onShowOrbitsChange(e.target.checked)} color="primary" size="small" />}
+          label={<Typography variant="body2">Show Orbits</Typography>} sx={{ m: 0 }}
+        />
+        <FormControlLabel
+          control={<Switch checked={showGrid} onChange={(e) => onShowGridChange?.(e.target.checked)} color="primary" size="small" />}
+          label={<Typography variant="body2">Show Grid</Typography>} sx={{ m: 0 }}
+        />
+      </Box>
       <Divider orientation="vertical" flexItem variant="middle" sx={{ my: 1.5 }} />
       <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
         <Typography variant="body2" color="text.secondary">Map Layer:</Typography>

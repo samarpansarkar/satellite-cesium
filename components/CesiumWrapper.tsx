@@ -35,6 +35,7 @@ interface CesiumWrapperProps {
   simulationSpeed: number;
   isPlaying?: boolean;
   showOrbits: boolean;
+  showGrid?: boolean;
   baseMapMode: "natural" | "grid";
 }
 

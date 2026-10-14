@@ -147,6 +147,7 @@ interface CesiumViewerProps {
   simulationSpeed: number;
   isPlaying?: boolean;
   showOrbits: boolean;
+  showGrid?: boolean;
   baseMapMode: "natural" | "grid";
 }
 
@@ -156,6 +157,7 @@ export default function CesiumViewer({
   simulationSpeed,
   isPlaying = true,
   showOrbits,
+  showGrid = true,
   baseMapMode,
 }: CesiumViewerProps) {
   const viewerRef = useRef<CesiumComponentRef<Cesium.Viewer>>(null);
@@ -190,11 +192,23 @@ export default function CesiumViewer({
     );
   }, []);
 
+  // Grid overlay with transparent background for rendering over Earth assets
+  const earthGridOverlayProvider = useMemo(() => {
+    if (typeof window === "undefined") return undefined;
+    return new Cesium.GridImageryProvider({
+      backgroundColor: Cesium.Color.TRANSPARENT,
+      color: Cesium.Color.fromCssColorString("#c89d70").withAlpha(0.6),
+      cells: 8,
+      glowColor: Cesium.Color.fromCssColorString("#8b5a2b").withAlpha(0.2),
+      glowWidth: 2,
+    });
+  }, []);
+
   const gridProvider = useMemo(() => {
     if (typeof window === "undefined") return undefined;
     return new Cesium.GridImageryProvider({
       backgroundColor: Cesium.Color.fromCssColorString("#090d16"),
-      color: Cesium.Color.fromCssColorString("#0284c7").withAlpha(0.6),
+      color: Cesium.Color.fromCssColorString("#c89d70").withAlpha(0.7),
       cells: 8,
     });
   }, []);
@@ -351,11 +365,19 @@ export default function CesiumViewer({
 
         {/* Selected Base Map Layer */}
         {baseMapMode === "natural" && (
-          <ImageryLayer
-            imageryProvider={naturalEarthProvider}
-            brightness={1.1}
-            contrast={1.1}
-          />
+          <React.Fragment>
+            <ImageryLayer
+              imageryProvider={naturalEarthProvider}
+              brightness={1.1}
+              contrast={1.1}
+            />
+            {showGrid && earthGridOverlayProvider && (
+              <ImageryLayer
+                imageryProvider={earthGridOverlayProvider}
+                alpha={0.75}
+              />
+            )}
+          </React.Fragment>
         )}
         {baseMapMode === "grid" && (
           <ImageryLayer imageryProvider={gridProvider} />
