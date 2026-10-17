@@ -1,8 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Card, CardHeader, CardContent, Typography, IconButton, Divider, Box, Switch, FormControlLabel, TextField, Slider, Chip, Tooltip } from "@mui/material";
 import CloseIcon from "@mui/icons-material/Close";
 import PlayArrowIcon from "@mui/icons-material/PlayArrow";
 import PauseIcon from "@mui/icons-material/Pause";
+import DragIndicatorIcon from "@mui/icons-material/DragIndicator";
 import type { SatelliteData } from "@/lib/types";
 
 interface SatelliteInfoPanelProps {
@@ -24,30 +25,120 @@ export default function SatelliteInfoPanel({
   onUpdateFov, 
   onUpdateSensorInclination 
 }: SatelliteInfoPanelProps) {
+  const [position, setPosition] = useState<{ x: number; y: number } | null>(null);
+  const cardRef = useRef<HTMLDivElement>(null);
+  const isDraggingRef = useRef(false);
+  const dragStartRef = useRef<{ mouseX: number; mouseY: number; initialX: number; initialY: number }>({
+    mouseX: 0,
+    mouseY: 0,
+    initialX: 0,
+    initialY: 0,
+  });
+
+  // Keep panel within screen bounds on resize if positioned
+  useEffect(() => {
+    const handleResize = () => {
+      if (!cardRef.current || position === null) return;
+      const rect = cardRef.current.getBoundingClientRect();
+      const maxX = Math.max(0, window.innerWidth - rect.width);
+      const maxY = Math.max(0, window.innerHeight - rect.height);
+      setPosition((prev) => {
+        if (!prev) return null;
+        return {
+          x: Math.min(Math.max(10, prev.x), maxX - 10),
+          y: Math.min(Math.max(10, prev.y), maxY - 10),
+        };
+      });
+    };
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, [position]);
+
+  const handlePointerDown = (e: React.PointerEvent) => {
+    // Only drag with primary mouse button / touch
+    if (e.button !== 0 && e.pointerType === "mouse") return;
+    if (!cardRef.current) return;
+
+    const rect = cardRef.current.getBoundingClientRect();
+    isDraggingRef.current = true;
+    dragStartRef.current = {
+      mouseX: e.clientX,
+      mouseY: e.clientY,
+      initialX: rect.left,
+      initialY: rect.top,
+    };
+
+    const handlePointerMove = (moveEvent: PointerEvent) => {
+      if (!isDraggingRef.current) return;
+      const deltaX = moveEvent.clientX - dragStartRef.current.mouseX;
+      const deltaY = moveEvent.clientY - dragStartRef.current.mouseY;
+
+      const cardWidth = rect.width;
+      const cardHeight = rect.height;
+      const minX = 10;
+      const minY = 60; // below top navbar
+      const maxX = window.innerWidth - cardWidth - 10;
+      const maxY = window.innerHeight - cardHeight - 10;
+
+      const newX = Math.min(Math.max(minX, dragStartRef.current.initialX + deltaX), maxX);
+      const newY = Math.min(Math.max(minY, dragStartRef.current.initialY + deltaY), maxY);
+
+      setPosition({ x: newX, y: newY });
+    };
+
+    const handlePointerUp = () => {
+      isDraggingRef.current = false;
+      window.removeEventListener("pointermove", handlePointerMove);
+      window.removeEventListener("pointerup", handlePointerUp);
+    };
+
+    window.addEventListener("pointermove", handlePointerMove);
+    window.addEventListener("pointerup", handlePointerUp);
+  };
+
   if (!satellite) return null;
 
   return (
     <Card 
+      ref={cardRef}
       sx={{ 
-        position: "absolute", 
-        top: 80, 
-        right: 24, 
+        position: "fixed", 
+        top: position !== null ? `${position.y}px` : "80px", 
+        left: position !== null ? `${position.x}px` : "auto", 
+        right: position !== null ? "auto" : "24px", 
         width: 330, 
         maxHeight: "min(520px, calc(100vh - 140px))",
         display: "flex",
         flexDirection: "column",
         overflow: "hidden",
-        zIndex: 10, 
+        zIndex: 1200, 
         bgcolor: "background.paper", 
         boxShadow: 8,
         borderRadius: 2,
+        userSelect: "none",
       }}
     >
       <CardHeader
+        onPointerDown={handlePointerDown}
+        sx={{ 
+          pb: 1, 
+          flexShrink: 0, 
+          cursor: "grab", 
+          "&:active": { cursor: "grabbing" },
+          backgroundColor: "rgba(255, 255, 255, 0.02)",
+        }}
+        avatar={
+          <Tooltip title="Drag to reposition">
+            <DragIndicatorIcon sx={{ color: "text.disabled", fontSize: 20, cursor: "grab" }} />
+          </Tooltip>
+        }
         title={<Typography variant="subtitle1" sx={{ fontWeight: "bold", color: '#38bdf8' }}>{satellite.name}</Typography>}
         subheader={satellite.type}
         action={
-          <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
+          <Box 
+            onPointerDown={(e) => e.stopPropagation()} 
+            sx={{ display: "flex", alignItems: "center", gap: 0.5 }}
+          >
             {onTogglePlayPause && (
               <Tooltip title={isPlaying ? "Pause simulation" : "Resume simulation"}>
                 <IconButton
@@ -73,11 +164,12 @@ export default function SatelliteInfoPanel({
             <IconButton aria-label="close" onClick={onClose}><CloseIcon /></IconButton>
           </Box>
         }
-        sx={{ pb: 1, flexShrink: 0 }}
       />
       <Divider />
       <CardContent 
+        onPointerDown={(e) => e.stopPropagation()}
         sx={{ 
+          userSelect: "text",
           overflowY: "auto", 
           flexGrow: 1,
           minHeight: 0,
