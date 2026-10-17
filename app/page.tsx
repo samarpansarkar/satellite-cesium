@@ -10,7 +10,7 @@ import FooterControls from "@/components/FooterControls";
 import SatelliteInfoPanel from "@/components/SatelliteInfoPanel";
 
 export default function Home() {
-  const { availableNames, satellites, isLoaded, loadSatellitesByNames, updateSatellite, updateAttachmentFov, updateSensorInclination } = useSatellites();
+  const { availableNames, satellites, loadSatellitesByNames, updateSatellite, updateAttachmentFov, updateSensorInclination } = useSatellites();
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [selectedNames, setSelectedNames] = useState<string[]>([]);
   const [selectedSatId, setSelectedSatId] = useState<string | null>(null);
