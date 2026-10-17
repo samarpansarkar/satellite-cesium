@@ -18,9 +18,8 @@ import {
   EllipseGraphics,
 } from "resium";
 import * as Cesium from "cesium";
-import { SatelliteData } from "@/lib/satellites";
+import type { SatelliteData, OrbitPath } from "@/lib/types";
 import { SATELLITE_ICON } from "./config";
-import { OrbitPath } from "./useOrbitPaths";
 
 interface SatelliteEntitiesProps {
   /** Memoised orbit path descriptor for this satellite. */

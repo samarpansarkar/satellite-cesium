@@ -32,7 +32,7 @@ import {
 import * as Cesium from "cesium";
 import "cesium/Build/Cesium/Widgets/widgets.css";
 
-import { SatelliteData } from "@/lib/satellites";
+import type { SatelliteData } from "@/lib/types";
 import { Box, CircularProgress, Typography } from "@mui/material";
 
 // Sub-module imports

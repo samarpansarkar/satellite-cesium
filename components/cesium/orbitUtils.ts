@@ -3,7 +3,7 @@
  * Pure math helpers for satellite orbit calculations and a per-frame cache.
  */
 import * as Cesium from "cesium";
-import { SatelliteData } from "@/lib/satellites";
+import type { SatelliteData } from "@/lib/types";
 
 // ─── Orbit Path Generation ────────────────────────────────────────────────────
 

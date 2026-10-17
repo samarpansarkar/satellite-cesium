@@ -3,7 +3,7 @@ import { Drawer, Box, Typography, List, ListItem, IconButton, ListItemIcon, Chec
 import InfoIcon from "@mui/icons-material/Info";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import ExpandLessIcon from "@mui/icons-material/ExpandLess";
-import { SatelliteData } from "@/lib/satellites";
+import type { SatelliteData } from "@/lib/types";
 
 interface SidebarProps {
   open: boolean;

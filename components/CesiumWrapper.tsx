@@ -2,7 +2,7 @@
 
 import dynamic from "next/dynamic";
 import { Box, CircularProgress, Typography } from "@mui/material";
-import { SatelliteData } from "@/lib/satellites";
+import type { SatelliteData } from "@/lib/types";
 
 const CesiumViewer = dynamic(() => import("./CesiumViewer"), {
   ssr: false,

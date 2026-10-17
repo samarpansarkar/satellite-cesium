@@ -1,52 +1,22 @@
 import { useState, useEffect, useCallback } from "react";
 import { useFetch } from "@/hooks/useFetch";
 
-export interface CameraSensorPayload {
-  isActive: boolean;
-  fovDeg: number;
-  inclinationDeg?: number;
-  inclinationDegree?: number;
-}
-
-export interface CommunicationPayload {
-  isActive: boolean;
-  targetStation?: [number, number];
-}
-
-export interface SatelliteData {
-  id: string;
-  name: string;
-  type: string;
-  altitudeKm: number;
-  inclinationDeg: number;
-  speedMultiplier: number;
-  periodSec: number;
-  camera?: CameraSensorPayload;
-  sensor?: CameraSensorPayload;
-  communication?: CommunicationPayload;
-  tleLine1?: string;
-  tleLine2?: string;
-}
-
-export interface RawSatelliteResponse {
-  id?: string;
-  name?: string;
-  OBJECT_NAME?: string;
-  type?: string;
-  altitudeKm?: number;
-  inclinationDeg?: number;
-  speedMultiplier?: number;
-  periodSec?: number;
-  camera?: CameraSensorPayload;
-  sensor?: CameraSensorPayload;
-  communication?: CommunicationPayload;
-  TLE_LINE1?: string;
-  TLE_LINE2?: string;
-}
-
-export type RawSatelliteNameResponse = string | RawSatelliteResponse;
+// All shared types live in lib/types.ts — re-exported here for backward compatibility
+export type {
+  CameraSensorPayload,
+  CommunicationPayload,
+  SatelliteData,
+  RawSatelliteResponse,
+  RawSatelliteNameResponse,
+} from "@/lib/types";
+import type {
+  SatelliteData,
+  RawSatelliteResponse,
+  RawSatelliteNameResponse,
+} from "@/lib/types";
 
 export const SATELLITE_UPDATE_EVENT = "satellite_data_updated";
+
 
 const globalSatelliteCache: Record<string, SatelliteData> = {};
 

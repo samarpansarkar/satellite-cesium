@@ -3,7 +3,7 @@ import { Card, CardHeader, CardContent, Typography, IconButton, Divider, Box, Sw
 import CloseIcon from "@mui/icons-material/Close";
 import PlayArrowIcon from "@mui/icons-material/PlayArrow";
 import PauseIcon from "@mui/icons-material/Pause";
-import { SatelliteData } from "@/lib/satellites";
+import type { SatelliteData } from "@/lib/types";
 
 interface SatelliteInfoPanelProps {
   satellite: SatelliteData | null;

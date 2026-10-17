@@ -2,7 +2,8 @@
 
 import React, { useState } from "react";
 import CesiumWrapper from "@/components/CesiumWrapper";
-import { SatelliteData, useSatellites } from "@/lib/satellites";
+import type { SatelliteData } from "@/lib/types";
+import { useSatellites } from "@/lib/satellites";
 import { Box } from "@mui/material";
 import Navbar from "@/components/Navbar";
 import Sidebar from "@/components/Sidebar";

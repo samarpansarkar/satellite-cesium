@@ -7,25 +7,7 @@
  */
 import { useMemo } from "react";
 import * as Cesium from "cesium";
-
-export interface ImageryProviders {
-  /** Offline NASA Natural Earth II raster tiles bundled with Cesium. */
-  naturalEarthProvider: Promise<Cesium.TileMapServiceImageryProvider> | undefined;
-  /** Transparent lat/lon grid overlay for the Natural Earth base map. */
-  earthGridOverlayProvider: Cesium.GridImageryProvider | undefined;
-  /** Solid dark background with amber grid lines (the "grid" map mode). */
-  gridProvider: Cesium.GridImageryProvider | undefined;
-
-  // ── Docker / local tile-server providers (uncomment to use) ──────────────
-  /** XYZ raster tiles: GET http://localhost:8080/tiles/{z}/{x}/{y}.png */
-  dockerXYZProvider: Cesium.UrlTemplateImageryProvider | undefined;
-  /** TMS (Tile Map Service) 1.0 tiles from a local MapProxy / GeoServer (async). */
-  dockerTMSProvider: Promise<Cesium.TileMapServiceImageryProvider> | undefined;
-  /** Quantized-Mesh 3-D terrain from a local Cesium Terrain Server (async). */
-  dockerTerrainProvider: Promise<Cesium.CesiumTerrainProvider> | undefined;
-  /** OGC WMS from a local GeoServer / MapServer instance. */
-  dockerWMSProvider: Cesium.WebMapServiceImageryProvider | undefined;
-}
+import type { ImageryProviders } from "@/lib/types";
 
 /**
  * Creates and memoises all imagery providers.

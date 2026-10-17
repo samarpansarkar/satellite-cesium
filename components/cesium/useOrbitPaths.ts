@@ -12,40 +12,14 @@
  */
 import { useMemo, useRef } from "react";
 import * as Cesium from "cesium";
-import { SatelliteData } from "@/lib/satellites";
+import type { SatelliteData, OrbitPath } from "@/lib/types";
 import { animClock } from "./animClock";
 import { generateOrbitPath, getCachedSatPosition, getCachedSubPosition } from "./orbitUtils";
 import { getSensorFootprintCenter } from "./sensorUtils";
 import { GROUND_STATION } from "./config";
 
-export interface OrbitPath {
-  id: string;
-  name: string;
-  path: Cesium.Cartesian3[];
-  cesiumColor: Cesium.Color;
-  positionProperty: Cesium.CallbackProperty;
-  subPositionProperty: Cesium.CallbackProperty;
-
-  cameraWithProps: {
-    beamProperty: Cesium.CallbackProperty;
-    subPositionProperty: Cesium.CallbackProperty;
-    radiusProperty: Cesium.CallbackProperty;
-  } | null;
-
-  sensorWithProps: {
-    footprintCenterProperty: Cesium.CallbackProperty;
-    beamProperty: Cesium.CallbackProperty;
-    radiusProperty: Cesium.CallbackProperty;
-    semiMajorProperty: Cesium.CallbackProperty;
-    semiMinorProperty: Cesium.CallbackProperty;
-    rotationProperty: Cesium.CallbackProperty;
-  } | null;
-
-  commWithProps: {
-    linkProperty: Cesium.CallbackProperty;
-    linkShowProperty: Cesium.CallbackProperty;
-  } | null;
-}
+// Re-export so existing imports from this file continue to work
+export type { OrbitPath } from "@/lib/types";
 
 /**
  * Build and memoize orbit path descriptors for the provided satellite list.

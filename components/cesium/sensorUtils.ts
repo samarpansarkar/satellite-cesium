@@ -3,7 +3,7 @@
  * Sensor footprint geometry helpers.
  */
 import * as Cesium from "cesium";
-import { SatelliteData } from "@/lib/satellites";
+import type { SatelliteData } from "@/lib/types";
 import { getCachedSatPosition, getCachedSubPosition, calculateSatPosition } from "./orbitUtils";
 
 /**
