@@ -1,145 +1,48 @@
 "use client";
 
-import React, { useEffect, useMemo, useRef } from "react";
-import { Viewer, ImageryLayer, Entity, PolylineGraphics, BillboardGraphics, LabelGraphics, Scene, Globe, EllipseGraphics, type CesiumComponentRef } from "resium";
+/**
+ * CesiumViewer.tsx
+ * Thin orchestrator component.
+ *
+ * Responsibilities:
+ *   1. Drive the out-of-band animation clock (requestAnimationFrame loop).
+ *   2. Resolve imagery providers.
+ *   3. Build per-satellite orbit path descriptors.
+ *   4. Render the Cesium <Viewer> shell + base map layers.
+ *   5. Delegate per-satellite entity rendering to <SatelliteEntities>.
+ *
+ * All heavy logic lives in the `cesium/` sub-folder:
+ *   cesium/config.ts              – Cesium global setup & constants
+ *   cesium/animClock.ts           – Animation clock singleton
+ *   cesium/orbitUtils.ts          – Orbit math & per-frame position cache
+ *   cesium/sensorUtils.ts         – Sensor footprint geometry
+ *   cesium/useImageryProviders.ts – All imagery / terrain provider hooks
+ *   cesium/useOrbitPaths.ts       – Per-satellite CallbackProperty builders
+ *   cesium/SatelliteEntities.tsx  – Cesium Entity JSX for one satellite
+ */
+
+import React, { useEffect, useRef } from "react";
+import {
+  Viewer,
+  ImageryLayer,
+  Scene,
+  Globe,
+  type CesiumComponentRef,
+} from "resium";
 import * as Cesium from "cesium";
 import "cesium/Build/Cesium/Widgets/widgets.css";
+
 import { SatelliteData } from "@/lib/satellites";
 import { Box, CircularProgress, Typography } from "@mui/material";
 
-// Configure Cesium asset base path to point to /cesium in public folder and clear Ion tokens
-if (typeof window !== "undefined") {
-  (window as unknown as { CESIUM_BASE_URL: string }).CESIUM_BASE_URL = "/cesium";
-  Cesium.Ion.defaultAccessToken = "";
-  Cesium.Camera.DEFAULT_VIEW_RECTANGLE = Cesium.Rectangle.fromDegrees(20.0, -40.0, 140.0, 60.0);
-}
+// Sub-module imports
+import "@/components/cesium/config"; // side-effect: sets CESIUM_BASE_URL & Ion token
+import { animClock } from "@/components/cesium/animClock";
+import { useImageryProviders } from "@/components/cesium/useImageryProviders";
+import { useOrbitPaths } from "@/components/cesium/useOrbitPaths";
+import { SatelliteEntities } from "@/components/cesium/SatelliteEntities";
 
-const SATELLITE_ICON = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='white'%3E%3Cpath d='M21,11H18V7h-2.59l-1.2-1.2a1,1,0,0,0-1.42,0L10,8.59,8.59,10a1,1,0,0,0,0,1.42L9.79,12.6,7,15.4V19H3.4l-1.1,1.1a1,1,0,0,0,0,1.41,1,1,0,0,0,1.41,0L4.8,20.4H8.4V16.8l2.8-2.8,1.2,1.2a1,1,0,0,0,1.42,0l4.2-4.2a1,1,0,0,0,0-1.42L16.8,8.4H21a1,1,0,0,0,0-2Z'/%3E%3C/svg%3E";
-
-// Dedicated animation clock container for CesiumJS render loop
-const animClock = {
-  elapsedTime: 0,
-  speed: 1,
-};
-
-const GROUND_STATION = Cesium.Cartesian3.fromDegrees(77.2090, 28.6139, 0); // Ground station for communications
-
-
-// Generate orbit trajectory points for a given altitude and inclination
-function generateOrbitPath(altitudeKm: number, inclinationDeg: number, samples = 120): Cesium.Cartesian3[] {
-  const points: Cesium.Cartesian3[] = [];
-  const earthRadius = 6371000;
-  const orbitRadius = earthRadius + altitudeKm * 1000;
-  const incRad = Cesium.Math.toRadians(inclinationDeg);
-
-  for (let i = 0; i <= samples; i++) {
-    const u = (i / samples) * Cesium.Math.TWO_PI;
-    const x = orbitRadius * Math.cos(u);
-    const y = orbitRadius * Math.sin(u) * Math.cos(incRad);
-    const z = orbitRadius * Math.sin(u) * Math.sin(incRad);
-    points.push(new Cesium.Cartesian3(x, y, z));
-  }
-  return points;
-}
-
-// Calculate instantaneous satellite position based on elapsed time
-function calculateSatPosition(sat: SatelliteData, timeSec: number): Cesium.Cartesian3 {
-  const earthRadius = 6371000;
-  const orbitRadius = earthRadius + sat.altitudeKm * 1000;
-  const incRad = Cesium.Math.toRadians(sat.inclinationDeg);
-
-  // Use speedMultiplier from data to vary relative speeds
-  const effectiveTime = timeSec * sat.speedMultiplier;
-  const angle = ((effectiveTime % sat.periodSec) / sat.periodSec) * Cesium.Math.TWO_PI;
-
-  const x = orbitRadius * Math.cos(angle);
-  const y = orbitRadius * Math.sin(angle) * Math.cos(incRad);
-  const z = orbitRadius * Math.sin(angle) * Math.sin(incRad);
-  return new Cesium.Cartesian3(x, y, z);
-}
-
-// Caching system for per-frame optimizations
-const frameCache = {
-  timeSec: -1,
-  positions: new Map<string, Cesium.Cartesian3>(),
-  subPositions: new Map<string, Cesium.Cartesian3>()
-};
-
-function getCachedSatPosition(sat: SatelliteData, timeSec: number): Cesium.Cartesian3 {
-  if (frameCache.timeSec !== timeSec) {
-    frameCache.timeSec = timeSec;
-    frameCache.positions.clear();
-    frameCache.subPositions.clear();
-  }
-  let pos = frameCache.positions.get(sat.id);
-  if (!pos) {
-    pos = calculateSatPosition(sat, timeSec);
-    frameCache.positions.set(sat.id, pos);
-  }
-  return pos;
-}
-
-function getCachedSubPosition(sat: SatelliteData, timeSec: number): Cesium.Cartesian3 {
-  let subPos = frameCache.subPositions.get(sat.id);
-  if (!subPos) {
-    const pos = getCachedSatPosition(sat, timeSec);
-    const earthRadius = 6371000;
-    const mag = Cesium.Cartesian3.magnitude(pos);
-    subPos = Cesium.Cartesian3.multiplyByScalar(pos, earthRadius / mag, new Cesium.Cartesian3());
-    frameCache.subPositions.set(sat.id, subPos);
-  }
-  return subPos;
-}
-
-// Compute the ground area scanned by the sensor based on its attachment inclination angle.
-// 90° points directly nadir (directly below satellite).
-// Angles deviating from 90° point off-nadir (cross-track scan), steering the footprint to scan different ground areas.
-function getSensorFootprintCenter(sat: SatelliteData, timeSec: number): Cesium.Cartesian3 {
-  const subPos = getCachedSubPosition(sat, timeSec);
-  const inc = sat.sensor?.inclinationDeg ?? sat.sensor?.inclinationDegree ?? 90;
-  
-  // Angle difference from nadir (90° = 0 offset, perfectly below)
-  const deltaDeg = inc - 90;
-  if (Math.abs(deltaDeg) < 0.05) {
-    return subPos;
-  }
-
-  const satPos = getCachedSatPosition(sat, timeSec);
-  const altitudeMeters = sat.altitudeKm * 1000;
-  const earthRadius = 6371000;
-
-  // Off-nadir pointing angle in radians
-  const deltaRad = Cesium.Math.toRadians(deltaDeg);
-  
-  // Ground displacement distance across-track: h * tan(off-nadir angle)
-  // Clamped to avoid scanning past the earth horizon
-  const maxDisplacement = Math.min(altitudeMeters * 3.5, 2500000);
-  const displacement = Math.max(-maxDisplacement, Math.min(maxDisplacement, altitudeMeters * Math.tan(deltaRad)));
-
-  // Compute unit normal vectors to offset cross-track (perpendicular to orbit & position)
-  // Up vector (radial from Earth center)
-  const up = Cesium.Cartesian3.normalize(satPos, new Cesium.Cartesian3());
-
-  // Tangent / velocity approximation by checking slight time advance
-  const nextSatPos = calculateSatPosition(sat, timeSec + 0.1);
-  const vel = Cesium.Cartesian3.subtract(nextSatPos, satPos, new Cesium.Cartesian3());
-  Cesium.Cartesian3.normalize(vel, vel);
-
-  // Cross-track direction = cross(vel, up)
-  const crossTrack = Cesium.Cartesian3.cross(vel, up, new Cesium.Cartesian3());
-  Cesium.Cartesian3.normalize(crossTrack, crossTrack);
-
-  // Calculate new target position on surface
-  const offsetPos = Cesium.Cartesian3.add(
-    subPos,
-    Cesium.Cartesian3.multiplyByScalar(crossTrack, displacement, new Cesium.Cartesian3()),
-    new Cesium.Cartesian3()
-  );
-
-  // Re-project onto Earth surface sphere
-  const offsetMag = Cesium.Cartesian3.magnitude(offsetPos);
-  return Cesium.Cartesian3.multiplyByScalar(offsetPos, earthRadius / offsetMag, new Cesium.Cartesian3());
-}
+// ─── Props ────────────────────────────────────────────────────────────────────
 
 interface CesiumViewerProps {
   satellites?: SatelliteData[];
@@ -150,6 +53,8 @@ interface CesiumViewerProps {
   showGrid?: boolean;
   baseMapMode: "natural" | "grid";
 }
+
+// ─── Component ────────────────────────────────────────────────────────────────
 
 export default function CesiumViewer({
   satellites = [],
@@ -162,7 +67,7 @@ export default function CesiumViewer({
 }: CesiumViewerProps) {
   const viewerRef = useRef<CesiumComponentRef<Cesium.Viewer>>(null);
 
-  // Keep animation clock speed in sync with simulationSpeed and isPlaying
+  // ── Animation clock sync ──────────────────────────────────────────────────
   useEffect(() => {
     animClock.speed = isPlaying ? simulationSpeed : 0;
   }, [simulationSpeed, isPlaying]);
@@ -174,223 +79,26 @@ export default function CesiumViewer({
     const tick = (time: number) => {
       const deltaMs = time - lastTime;
       lastTime = time;
-      // Update elapsed time based on real time delta and simulation speed
       animClock.elapsedTime += (deltaMs / 1000) * animClock.speed;
       frameId = requestAnimationFrame(tick);
     };
 
     frameId = requestAnimationFrame(tick);
-
     return () => cancelAnimationFrame(frameId);
   }, []);
 
-  // Offline imagery providers
-  const naturalEarthProvider = useMemo(() => {
-    if (typeof window === "undefined") return undefined;
-    return Cesium.TileMapServiceImageryProvider.fromUrl(
-      Cesium.buildModuleUrl("Assets/Textures/NaturalEarthII")
-    );
-  }, []);
+  // ── Imagery providers ─────────────────────────────────────────────────────
+  const { naturalEarthProvider, earthGridOverlayProvider, gridProvider } =
+    useImageryProviders();
 
-  // Grid overlay with transparent background for rendering over Earth assets
-  const earthGridOverlayProvider = useMemo(() => {
-    if (typeof window === "undefined") return undefined;
-    return new Cesium.GridImageryProvider({
-      backgroundColor: Cesium.Color.TRANSPARENT,
-      color: Cesium.Color.fromCssColorString("#c89d70").withAlpha(0.6),
-      cells: 8,
-      glowColor: Cesium.Color.fromCssColorString("#8b5a2b").withAlpha(0.2),
-      glowWidth: 2,
-    });
-  }, []);
+  // ── Orbit paths ───────────────────────────────────────────────────────────
+  const orbitPaths = useOrbitPaths(satellites);
 
-  const gridProvider = useMemo(() => {
-    if (typeof window === "undefined") return undefined;
-    return new Cesium.GridImageryProvider({
-      backgroundColor: Cesium.Color.fromCssColorString("#090d16"),
-      color: Cesium.Color.fromCssColorString("#c89d70").withAlpha(0.7),
-      cells: 8,
-    });
-  }, []);
-
-  // ─────────────────────────────────────────────────────────────────────────────
-  // Docker Terrain / Tile Server  (http://localhost:8080)
-  // Uncomment exactly ONE block that matches your server type.
-  // ─────────────────────────────────────────────────────────────────────────────
-
-  // ── OPTION A: XYZ Raster Tiles (PNG/JPEG) ────────────────────────────────────
-  // Use when the server serves standard slippy-map tiles:
-  //   GET http://localhost:8080/tiles/{z}/{x}/{y}.png
-  // Adjust the URL template to match your server's actual path.
-  const dockerXYZProvider = useMemo(() => {
-    if (typeof window === "undefined") return undefined;
-    return new Cesium.UrlTemplateImageryProvider({
-      url: "http://localhost:8080/tiles/{z}/{x}/{y}.png",
-      // url: "http://localhost:8080/{z}/{x}/{y}.jpg",   // JPEG variant
-      minimumLevel: 0,
-      maximumLevel: 18,
-      tilingScheme: new Cesium.WebMercatorTilingScheme(),
-      credit: new Cesium.Credit("Docker Tile Server"),
-    });
-  }, []);
-
-  // ── OPTION B: TMS (Tile Map Service) ─────────────────────────────────────────
-  // Use when the server follows the TMS 1.0 spec (OSGeo/MapProxy style):
-  //   GET http://localhost:8080/tms/1.0.0/imagery/{z}/{x}/{y}.png
-  // The URL should point to the root of the tileset (directory with tilemapresource.xml).
-  const dockerTMSProvider = useMemo(() => {
-    if (typeof window === "undefined") return undefined;
-    return Cesium.TileMapServiceImageryProvider.fromUrl(
-      "http://localhost:8080/tms/1.0.0/imagery/",
-      {
-        fileExtension: "png",
-        minimumLevel: 0,
-        maximumLevel: 18,
-        credit: new Cesium.Credit("Docker TMS Server"),
-      }
-    );
-  }, []);
-
-  // ── OPTION C: Cesium Quantized-Mesh Terrain ───────────────────────────────────
-  // Use when the server provides 3D terrain elevation (e.g. Cesium Terrain Server,
-  // Cesium-Terrain-Builder output, or tilesets from py3dtiles / terriajs-server):
-  //   GET http://localhost:8080/tilesets/terrain/{z}/{x}/{y}.terrain
-  // This replaces the Globe terrain, not the imagery.
-  const dockerTerrainProvider = useMemo(() => {
-    if (typeof window === "undefined") return undefined;
-    return Cesium.CesiumTerrainProvider.fromUrl(
-      "http://localhost:8080/tilesets/terrain/",
-      {
-        requestVertexNormals: true,  // enables lighting/slope shading
-        requestWaterMask: false,
-        credit: new Cesium.Credit("Docker Terrain Server"),
-      }
-    );
-  }, []);
-
-  // ── OPTION D: WMS (Web Map Service) ──────────────────────────────────────────
-  // Use when the server exposes an OGC WMS endpoint (GeoServer, MapServer, QGIS Server):
-  //   GET http://localhost:8080/wms?SERVICE=WMS&REQUEST=GetMap&...
-  // Set `layers` to the layer name published on your WMS server.
-  const dockerWMSProvider = useMemo(() => {
-    if (typeof window === "undefined") return undefined;
-    return new Cesium.WebMapServiceImageryProvider({
-      url: "http://localhost:8080/wms",
-      layers: "earth_imagery",          // ← change to your WMS layer name
-      parameters: {
-        service: "WMS",
-        version: "1.1.1",
-        request: "GetMap",
-        transparent: "false",
-        format: "image/png",
-      },
-      minimumLevel: 0,
-      maximumLevel: 18,
-      credit: new Cesium.Credit("Docker WMS Server"),
-    });
-  }, []);
-
+  // ── Satellite map (O(1) live-data lookup) ─────────────────────────────────
   const satMapRef = useRef(new Map<string, SatelliteData>());
-  satMapRef.current = new Map(satellites.map(s => [s.id, s]));
+  satMapRef.current = new Map(satellites.map((s) => [s.id, s]));
 
-  const satIds = satellites.map(s => s.id).join(',');
-
-  // Compute satellite orbit paths and properties only when the list of satellites changes
-  const orbitPaths = useMemo(() => {
-    return satellites.map((initialSat) => {
-      const color = Cesium.Color.fromCssColorString("#38bdf8");
-
-      // O(1) lookup instead of O(N)
-      const getSat = () => satMapRef.current.get(initialSat.id) || initialSat;
-
-      return {
-        id: initialSat.id, // Need ID for React keys and filtering
-        name: initialSat.name,
-        path: generateOrbitPath(initialSat.altitudeKm, initialSat.inclinationDeg),
-        cesiumColor: color,
-        // CallbackProperty queries the out-of-band animation clock directly
-        positionProperty: new Cesium.CallbackProperty(() => getCachedSatPosition(getSat(), animClock.elapsedTime), false),
-        subPositionProperty: new Cesium.CallbackProperty(() => getCachedSubPosition(getSat(), animClock.elapsedTime), false),
-
-        cameraWithProps: initialSat.camera ? {
-          beamProperty: new Cesium.CallbackProperty(() => {
-            const currentSat = getSat();
-            return [
-              getCachedSatPosition(currentSat, animClock.elapsedTime), 
-              getCachedSubPosition(currentSat, animClock.elapsedTime)
-            ];
-          }, false),
-          subPositionProperty: new Cesium.CallbackProperty(() => {
-            const currentSat = getSat();
-            return getCachedSubPosition(currentSat, animClock.elapsedTime);
-          }, false),
-          radiusProperty: new Cesium.CallbackProperty(() => {
-            const currentSat = getSat();
-            const fov = currentSat.camera?.fovDeg || 30; // Default 30 deg FOV
-            const altitudeMeters = currentSat.altitudeKm * 1000;
-            const radius = Math.max(altitudeMeters * Math.tan(Cesium.Math.toRadians(fov / 2)), 50000);
-            return radius;
-          }, false)
-        } : null,
-
-        sensorWithProps: initialSat.sensor ? {
-          footprintCenterProperty: new Cesium.CallbackProperty(() => {
-            const currentSat = getSat();
-            return getSensorFootprintCenter(currentSat, animClock.elapsedTime);
-          }, false),
-          beamProperty: new Cesium.CallbackProperty(() => {
-            const currentSat = getSat();
-            const satPos = getCachedSatPosition(currentSat, animClock.elapsedTime);
-            const targetPos = getSensorFootprintCenter(currentSat, animClock.elapsedTime);
-            return [satPos, targetPos];
-          }, false),
-          radiusProperty: new Cesium.CallbackProperty(() => {
-            const currentSat = getSat();
-            const fov = currentSat.sensor?.fovDeg || 60; // Default 60 deg FOV for sensors
-            const altitudeMeters = currentSat.altitudeKm * 1000;
-            const radius = Math.max(altitudeMeters * Math.tan(Cesium.Math.toRadians(fov / 2)), 100000);
-            return radius;
-          }, false),
-          semiMajorProperty: new Cesium.CallbackProperty(() => {
-            const currentSat = getSat();
-            const fov = currentSat.sensor?.fovDeg || 60;
-            const altitudeMeters = currentSat.altitudeKm * 1000;
-            return Math.max(altitudeMeters * Math.tan(Cesium.Math.toRadians(fov / 2)), 100000);
-          }, false),
-          semiMinorProperty: new Cesium.CallbackProperty(() => {
-            const currentSat = getSat();
-            const fov = currentSat.sensor?.fovDeg || 60;
-            const altitudeMeters = currentSat.altitudeKm * 1000;
-            return Math.max(altitudeMeters * Math.tan(Cesium.Math.toRadians(fov / 2)), 100000);
-          }, false),
-          rotationProperty: new Cesium.CallbackProperty(() => 0, false),
-        } : null,
-
-        commWithProps: initialSat.communication ? {
-          linkProperty: new Cesium.CallbackProperty(() => {
-            const currentSat = getSat();
-            const pos = getCachedSatPosition(currentSat, animClock.elapsedTime);
-            const currentComm = currentSat.communication;
-            const target = (currentComm && currentComm.targetStation) ? Cesium.Cartesian3.fromDegrees(currentComm.targetStation[0], currentComm.targetStation[1], 0) : GROUND_STATION;
-            return [pos, target];
-          }, false),
-          linkShowProperty: new Cesium.CallbackProperty(() => {
-            const currentSat = getSat();
-            const pos = getCachedSatPosition(currentSat, animClock.elapsedTime);
-            const currentComm = currentSat.communication;
-            const target = (currentComm && currentComm.targetStation) ? Cesium.Cartesian3.fromDegrees(currentComm.targetStation[0], currentComm.targetStation[1], 0) : GROUND_STATION;
-            const distance = Cesium.Cartesian3.distance(pos, target);
-
-            const R = 6371000;
-            const h = currentSat.altitudeKm * 1000;
-            const maxVisibleDist = Math.sqrt(Math.pow(R + h, 2) - Math.pow(R, 2));
-            return distance <= (maxVisibleDist + 500000);
-          }, false)
-        } : null
-      };
-    });
-  }, [satIds]);
-
+  // ── Loading guard ─────────────────────────────────────────────────────────
   if (!naturalEarthProvider || !gridProvider) {
     return (
       <Box
@@ -412,15 +120,19 @@ export default function CesiumViewer({
     );
   }
 
-  const visibleSats = orbitPaths.filter((sat) => !hiddenSatellites.includes(sat.id));
+  const visibleSats = orbitPaths.filter(
+    (orbit) => !hiddenSatellites.includes(orbit.id)
+  );
 
+  // ── Render ────────────────────────────────────────────────────────────────
   return (
     <Box sx={{ width: "100%", height: "100%", position: "relative" }}>
       <div id="cesium-credit-container" style={{ display: "none" }} />
+
       <Viewer
         ref={viewerRef}
         full
-        // @ts-expect-error - resium types are outdated, imageryProvider=false is needed to prevent default Ion/Bing network requests
+        // @ts-expect-error resium types are outdated; imageryProvider=false prevents default Ion/Bing requests
         imageryProvider={false}
         creditContainer="cesium-credit-container"
         baseLayerPicker={false}
@@ -440,7 +152,7 @@ export default function CesiumViewer({
           maximumScreenSpaceError={1.5}
         />
 
-        {/* Selected Base Map Layer */}
+        {/* ── Base Map Layer ─────────────────────────────────────────────── */}
         {baseMapMode === "natural" && (
           <React.Fragment>
             <ImageryLayer
@@ -460,119 +172,20 @@ export default function CesiumViewer({
           <ImageryLayer imageryProvider={gridProvider} />
         )}
 
+        {/* ── Satellite Entities ─────────────────────────────────────────── */}
         {visibleSats.map((orbit) => {
-          // Look up active state dynamically from the O(1) map
           const liveSat = satMapRef.current.get(orbit.id);
           if (!liveSat) return null;
 
           return (
-            <React.Fragment key={orbit.id}>
-              {/* Orbit Path */}
-              {showOrbits && (
-                <Entity name={`${orbit.name} Orbit`}>
-                  <PolylineGraphics
-                    positions={orbit.path}
-                    width={1.5}
-                    material={orbit.cesiumColor.withAlpha(0.7)}
-                    arcType={Cesium.ArcType.NONE}
-                  />
-                </Entity>
-              )}
-
-              {/* Satellite Icon & Label */}
-              <Entity name={orbit.name} position={orbit.positionProperty as unknown as Cesium.Cartesian3}>
-                <BillboardGraphics
-                  image={SATELLITE_ICON}
-                  scale={0.8}
-                />
-                <LabelGraphics
-                  text={orbit.name}
-                  font="bold 14px sans-serif"
-                  fillColor={Cesium.Color.WHITE}
-                  style={Cesium.LabelStyle.FILL}
-                  showBackground={true}
-                  backgroundColor={Cesium.Color.BLACK.withAlpha(0.6)}
-                  backgroundPadding={new Cesium.Cartesian2(7, 5)}
-                  pixelOffset={new Cesium.Cartesian2(0, -20)}
-                  horizontalOrigin={Cesium.HorizontalOrigin.CENTER}
-                />
-              </Entity>
-
-              {/* Sensor Radar Pulse & Swath Effects */}
-              {orbit.sensorWithProps && liveSat.sensor?.isActive && (
-                <React.Fragment>
-                  <Entity position={orbit.sensorWithProps.footprintCenterProperty as unknown as Cesium.Cartesian3}>
-                    <EllipseGraphics
-                      height={0}
-                      semiMajorAxis={orbit.sensorWithProps.semiMajorProperty as unknown as Cesium.Property}
-                      semiMinorAxis={orbit.sensorWithProps.semiMinorProperty as unknown as Cesium.Property}
-                      rotation={orbit.sensorWithProps.rotationProperty as unknown as Cesium.Property}
-                      material={new Cesium.ColorMaterialProperty(Cesium.Color.ORANGE.withAlpha(0.25))}
-                      outline={true}
-                      outlineColor={Cesium.Color.ORANGE.withAlpha(0.95)}
-                      outlineWidth={3}
-                    />
-                  </Entity>
-                  <Entity>
-                    <PolylineGraphics
-                      positions={orbit.sensorWithProps.beamProperty as unknown as Cesium.Cartesian3[]}
-                      width={2.5}
-                      arcType={Cesium.ArcType.NONE}
-                      material={new Cesium.PolylineDashMaterialProperty({
-                        color: Cesium.Color.ORANGE.withAlpha(0.75),
-                        dashLength: 25.0,
-                      })}
-                    />
-                  </Entity>
-                </React.Fragment>
-              )}
-
-              {/* Camera Scanner Cone Effects */}
-              {orbit.cameraWithProps && liveSat.camera?.isActive && (
-                <React.Fragment>
-                  <Entity position={orbit.cameraWithProps.subPositionProperty as unknown as Cesium.Cartesian3}>
-                    <EllipseGraphics
-                      semiMajorAxis={orbit.cameraWithProps.radiusProperty as unknown as Cesium.Property}
-                      semiMinorAxis={orbit.cameraWithProps.radiusProperty as unknown as Cesium.Property}
-                      material={Cesium.Color.CYAN.withAlpha(0.5)}
-                      outline={true}
-                      outlineColor={Cesium.Color.CYAN.withAlpha(0.9)}
-                      outlineWidth={3}
-                    />
-                  </Entity>
-                  <Entity>
-                    <PolylineGraphics
-                      positions={orbit.cameraWithProps.beamProperty as unknown as Cesium.Cartesian3[]}
-                      width={4}
-                      arcType={Cesium.ArcType.NONE}
-                      material={new Cesium.PolylineDashMaterialProperty({
-                        color: Cesium.Color.CYAN.withAlpha(0.8),
-                        dashLength: 40.0,
-                      })}
-                    />
-                  </Entity>
-                </React.Fragment>
-              )}
-
-              {/* Communication Laser Link Effects */}
-              {orbit.commWithProps && liveSat.communication?.isActive && (
-                <Entity>
-                  <PolylineGraphics
-                    show={orbit.commWithProps.linkShowProperty as unknown as Cesium.Property}
-                    positions={orbit.commWithProps.linkProperty as unknown as Cesium.Cartesian3[]}
-                    width={3}
-                    arcType={Cesium.ArcType.NONE}
-                    material={new Cesium.PolylineGlowMaterialProperty({
-                      glowPower: 0.25,
-                      color: Cesium.Color.MAGENTA,
-                    })}
-                  />
-                </Entity>
-              )}
-            </React.Fragment>
+            <SatelliteEntities
+              key={orbit.id}
+              orbit={orbit}
+              liveSat={liveSat}
+              showOrbits={showOrbits}
+            />
           );
         })}
-
       </Viewer>
     </Box>
   );
