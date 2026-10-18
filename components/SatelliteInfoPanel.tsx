@@ -580,21 +580,116 @@ export default function SatelliteInfoPanel({
 
             {satellite.communication ? (
               satellite.communication.targetStation ? (
-                <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mt: 1 }}>
-                  <Typography variant="caption" color="text.secondary">Target Station</Typography>
-                  <Box 
-                    sx={{ 
-                      px: 1, 
-                      py: 0.35, 
-                      bgcolor: "background.default", 
-                      border: "1px solid", 
-                      borderColor: "divider", 
-                      borderRadius: 1 
-                    }}
-                  >
-                    <Typography variant="caption" sx={{ fontFamily: "monospace", color: "text.primary" }}>
-                      [{satellite.communication.targetStation[0].toFixed(2)}&deg;, {satellite.communication.targetStation[1].toFixed(2)}&deg;]
-                    </Typography>
+                <Box sx={{ display: "flex", flexDirection: "column", gap: 0.75, mt: 1 }}>
+                  <Typography variant="caption" color="text.secondary">
+                    Target Ground Station [Lon, Lat]
+                  </Typography>
+                  <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                    {/* Longitude */}
+                    <Box 
+                      sx={{ 
+                        flex: 1,
+                        display: "flex", 
+                        alignItems: "center", 
+                        gap: 0.5,
+                        bgcolor: "background.default", 
+                        border: "1px solid", 
+                        borderColor: "divider", 
+                        borderRadius: 1,
+                        px: 1,
+                        py: 0.35,
+                        transition: "border-color 0.2s",
+                        "&:focus-within": {
+                          borderColor: "primary.main",
+                        },
+                      }}
+                    >
+                      <Typography variant="caption" color="text.secondary" sx={{ fontSize: "0.7rem" }}>Lon:</Typography>
+                      <InputBase
+                        type="number"
+                        value={satellite.communication.targetStation[0]}
+                        onChange={(e) => {
+                          const val = parseFloat(e.target.value) || 0;
+                          const lat = satellite.communication?.targetStation ? satellite.communication.targetStation[1] : 0;
+                          onUpdateSatellite?.(satellite.id, {
+                            communication: {
+                              ...satellite.communication!,
+                              targetStation: [val, lat]
+                            }
+                          });
+                        }}
+                        inputProps={{ min: -180, max: 180, step: 0.1 }}
+                        sx={{
+                          flex: 1,
+                          fontSize: "0.8rem",
+                          color: "text.primary",
+                          "& input": { 
+                            p: 0, 
+                            textAlign: "right",
+                            fontFamily: "monospace",
+                            MozAppearance: "textfield",
+                            "&::-webkit-outer-spin-button, &::-webkit-inner-spin-button": {
+                              WebkitAppearance: "none",
+                              margin: 0,
+                            },
+                          },
+                        }}
+                      />
+                      <Typography variant="caption" color="text.secondary">&deg;</Typography>
+                    </Box>
+
+                    {/* Latitude */}
+                    <Box 
+                      sx={{ 
+                        flex: 1,
+                        display: "flex", 
+                        alignItems: "center", 
+                        gap: 0.5,
+                        bgcolor: "background.default", 
+                        border: "1px solid", 
+                        borderColor: "divider", 
+                        borderRadius: 1,
+                        px: 1,
+                        py: 0.35,
+                        transition: "border-color 0.2s",
+                        "&:focus-within": {
+                          borderColor: "primary.main",
+                        },
+                      }}
+                    >
+                      <Typography variant="caption" color="text.secondary" sx={{ fontSize: "0.7rem" }}>Lat:</Typography>
+                      <InputBase
+                        type="number"
+                        value={satellite.communication.targetStation[1]}
+                        onChange={(e) => {
+                          const val = parseFloat(e.target.value) || 0;
+                          const lon = satellite.communication?.targetStation ? satellite.communication.targetStation[0] : 0;
+                          onUpdateSatellite?.(satellite.id, {
+                            communication: {
+                              ...satellite.communication!,
+                              targetStation: [lon, val]
+                            }
+                          });
+                        }}
+                        inputProps={{ min: -90, max: 90, step: 0.1 }}
+                        sx={{
+                          flex: 1,
+                          fontSize: "0.8rem",
+                          color: "text.primary",
+                          "& input": { 
+                            p: 0, 
+                            textAlign: "right",
+                            fontFamily: "monospace",
+                            MozAppearance: "textfield",
+                            "&::-webkit-outer-spin-button, &::-webkit-inner-spin-button": {
+                              WebkitAppearance: "none",
+                              margin: 0,
+                            },
+                          },
+                        }}
+                      />
+                      <Typography variant="caption" color="text.secondary">&deg;</Typography>
+                    </Box>
                   </Box>
                 </Box>
               ) : (
