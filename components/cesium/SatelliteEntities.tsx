@@ -20,6 +20,7 @@ import {
 import * as Cesium from "cesium";
 import type { SatelliteData, OrbitPath } from "@/lib/types";
 import { SATELLITE_ICON } from "./config";
+import { GroundTrack } from "./GroundTrack";
 
 interface SatelliteEntitiesProps {
   /** Memoised orbit path descriptor for this satellite. */
@@ -47,6 +48,11 @@ export function SatelliteEntities({ orbit, liveSat, showOrbits }: SatelliteEntit
             arcType={Cesium.ArcType.NONE}
           />
         </Entity>
+      )}
+
+      {/* ── Ground Track ──────────────────────────────────────────────────── */}
+      {liveSat.showGroundTrack && (
+        <GroundTrack liveSat={liveSat} orbit={orbit} />
       )}
 
       {/* ── Satellite Icon & Label ──────────────────────────────────────────── */}

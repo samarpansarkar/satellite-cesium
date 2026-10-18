@@ -84,7 +84,7 @@ export default function Sidebar({
         {availableNames.map((name) => {
           const isSelected = selectedNames.includes(name);
           const satData = satellites.find(s => s.name === name || s.name === name.toUpperCase());
-          const hasAttachments = satData && (satData.camera || satData.sensor || satData.communication);
+          const hasAttachments = Boolean(satData);
           const isExpanded = satData ? !!expanded[satData.id] : false;
 
           return (
@@ -160,8 +160,29 @@ export default function Sidebar({
                     borderBottom: '1px solid', borderColor: 'divider',
                   }}>
                     <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600, mb: 0.5, letterSpacing: 0.5 }}>
-                      ATTACHMENTS
+                      TRACKS & ATTACHMENTS
                     </Typography>
+
+                    <FormControlLabel
+                      control={
+                        <Switch
+                          size="small"
+                          checked={Boolean(satData!.showGroundTrack)}
+                          onChange={(e) => onUpdateSatellite?.(satData!.id, {
+                            showGroundTrack: e.target.checked,
+                          })}
+                          sx={{
+                            "& .MuiSwitch-switchBase.Mui-checked": {
+                              color: "#f59e0b",
+                            },
+                            "& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track": {
+                              backgroundColor: "#f59e0b",
+                            },
+                          }}
+                        />
+                      }
+                      label={<Typography variant="body2" sx={{ fontWeight: 500 }}>Ground Track</Typography>}
+                    />
 
                     {satData!.camera && (
                       <FormControlLabel

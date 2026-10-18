@@ -277,6 +277,53 @@ export default function SatelliteInfoPanel({
 
         <Divider sx={{ my: 2 }} />
 
+        {/* Ground Track Section */}
+        <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <Box>
+            <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+              <Typography variant="subtitle2" sx={{ fontWeight: 600, color: "text.primary" }}>
+                Ground Track
+              </Typography>
+              {satellite.showGroundTrack && (
+                <Box
+                  sx={{
+                    px: 0.75,
+                    py: 0.15,
+                    borderRadius: 1,
+                    fontSize: "0.65rem",
+                    fontWeight: 700,
+                    textTransform: "uppercase",
+                    letterSpacing: "0.5px",
+                    bgcolor: "rgba(245, 158, 11, 0.15)",
+                    color: "#f59e0b",
+                    border: "1px solid rgba(245, 158, 11, 0.35)",
+                  }}
+                >
+                  Active
+                </Box>
+              )}
+            </Box>
+            <Typography variant="caption" color="text.secondary">
+              Project orbit trajectory onto Earth surface
+            </Typography>
+          </Box>
+          <Switch 
+            size="small" 
+            checked={Boolean(satellite.showGroundTrack)} 
+            onChange={(e) => onUpdateSatellite?.(satellite.id, { showGroundTrack: e.target.checked })}
+            sx={{
+              "& .MuiSwitch-switchBase.Mui-checked": {
+                color: "#f59e0b",
+              },
+              "& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track": {
+                backgroundColor: "#f59e0b",
+              },
+            }}
+          />
+        </Box>
+
+        <Divider sx={{ my: 2 }} />
+
         {/* Attachments Section */}
         <Typography variant="subtitle2" sx={{ fontWeight: 600, color: "text.primary", mb: 1.5 }}>
           Attachments

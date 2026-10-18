@@ -88,6 +88,7 @@ export function useSatellites() {
               communication: sat.communication,
               tleLine1: sat.TLE_LINE1,
               tleLine2: sat.TLE_LINE2,
+              showGroundTrack: sat.showGroundTrack ?? false,
             })
           );
         }

@@ -40,6 +40,7 @@ export interface SatelliteData {
   communication?: CommunicationPayload;
   tleLine1?: string;
   tleLine2?: string;
+  showGroundTrack?: boolean;
 }
 
 /** Raw response shape from the API before normalisation. */
@@ -57,6 +58,7 @@ export interface RawSatelliteResponse {
   communication?: CommunicationPayload;
   TLE_LINE1?: string;
   TLE_LINE2?: string;
+  showGroundTrack?: boolean;
 }
 
 /** A single item from the `/getSatellites` name-list endpoint. */
