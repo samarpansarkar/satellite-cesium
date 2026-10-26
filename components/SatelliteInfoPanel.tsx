@@ -322,6 +322,142 @@ export default function SatelliteInfoPanel({
           />
         </Box>
 
+        {/* Ground Swath Corridor Toggle & Controls */}
+        <Box sx={{ mt: 1.5 }}>
+          <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <Box>
+              <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                <Typography variant="body2" sx={{ fontWeight: 500, color: "text.primary" }}>
+                  Ground Swath
+                </Typography>
+                {satellite.showSwath && (
+                  <Box
+                    component="span"
+                    sx={{
+                      px: 0.75,
+                      py: 0.15,
+                      borderRadius: 1,
+                      fontSize: "0.65rem",
+                      fontWeight: 700,
+                      textTransform: "uppercase",
+                      letterSpacing: "0.5px",
+                      bgcolor: "rgba(56, 189, 248, 0.15)",
+                      color: "#38bdf8",
+                      border: "1px solid rgba(56, 189, 248, 0.35)",
+                    }}
+                  >
+                    Active
+                  </Box>
+                )}
+              </Box>
+              <Typography variant="caption" color="text.secondary">
+                Coverage corridor along orbital track
+              </Typography>
+            </Box>
+            <Switch 
+              size="small" 
+              checked={Boolean(satellite.showSwath)} 
+              onChange={(e) => onUpdateSatellite?.(satellite.id, { showSwath: e.target.checked })}
+              sx={{
+                "& .MuiSwitch-switchBase.Mui-checked": {
+                  color: "#38bdf8",
+                },
+                "& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track": {
+                  backgroundColor: "#38bdf8",
+                },
+              }}
+            />
+          </Box>
+
+          {/* Swath Width Adjustment (visible when Swath is enabled) */}
+          {satellite.showSwath && (() => {
+            const defaultSwathKm = Math.round(
+              Math.min(
+                3000,
+                Math.max(
+                  50,
+                  satellite.altitudeKm *
+                    Math.tan(((satellite.sensor?.fovDeg ?? satellite.camera?.fovDeg ?? 25) * Math.PI) / 360) *
+                    2
+                )
+              )
+            );
+            const currentSwathWidth = satellite.swathWidthKm ?? defaultSwathKm;
+
+            return (
+              <Box sx={{ mt: 1.25, display: "flex", flexDirection: "column", gap: 1 }}>
+                <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <Typography variant="caption" color="text.secondary">
+                    Swath Width
+                  </Typography>
+
+                  <Box 
+                    sx={{ 
+                      display: "flex", 
+                      alignItems: "center", 
+                      gap: 0.5,
+                      bgcolor: "background.default",
+                      border: "1px solid",
+                      borderColor: "divider",
+                      borderRadius: 1,
+                      px: 1,
+                      py: 0.35,
+                      transition: "border-color 0.2s",
+                      "&:focus-within": {
+                        borderColor: "primary.main",
+                      },
+                    }}
+                  >
+                    <InputBase
+                      type="number"
+                      value={currentSwathWidth}
+                      onChange={(e) => {
+                        const val = Math.max(10, Math.min(3000, parseFloat(e.target.value) || 10));
+                        onUpdateSatellite?.(satellite.id, { swathWidthKm: val });
+                      }}
+                      inputProps={{ min: 10, max: 3000, step: 25 }}
+                      sx={{
+                        width: 54,
+                        fontSize: "0.8rem",
+                        color: "text.primary",
+                        "& input": { 
+                          p: 0, 
+                          textAlign: "right",
+                          MozAppearance: "textfield",
+                          "&::-webkit-outer-spin-button, &::-webkit-inner-spin-button": {
+                            WebkitAppearance: "none",
+                            margin: 0,
+                          },
+                        },
+                      }}
+                    />
+                    <Typography variant="caption" color="text.secondary">km</Typography>
+                  </Box>
+                </Box>
+
+                <Slider 
+                  size="small"
+                  min={50}
+                  max={2500}
+                  step={25}
+                  value={currentSwathWidth}
+                  onChange={(_, val) => {
+                    onUpdateSatellite?.(satellite.id, { swathWidthKm: val as number });
+                  }}
+                  sx={{
+                    color: "#38bdf8",
+                    "& .MuiSlider-thumb": {
+                      "&:hover, &.Mui-focusVisible": {
+                        boxShadow: "0 0 0 8px rgba(56, 189, 248, 0.16)",
+                      },
+                    },
+                  }}
+                />
+              </Box>
+            );
+          })()}
+        </Box>
+
         <Divider sx={{ my: 2 }} />
 
         {/* Attachments Section */}

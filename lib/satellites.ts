@@ -89,6 +89,8 @@ export function useSatellites() {
               tleLine1: sat.TLE_LINE1,
               tleLine2: sat.TLE_LINE2,
               showGroundTrack: sat.showGroundTrack ?? false,
+              showSwath: sat.showSwath ?? false,
+              swathWidthKm: sat.swathWidthKm,
             })
           );
         }

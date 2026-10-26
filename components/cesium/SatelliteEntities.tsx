@@ -21,6 +21,7 @@ import * as Cesium from "cesium";
 import type { SatelliteData, OrbitPath } from "@/lib/types";
 import { SATELLITE_ICON } from "./config";
 import { GroundTrack } from "./GroundTrack";
+import { Swath } from "./Swath";
 
 interface SatelliteEntitiesProps {
   /** Memoised orbit path descriptor for this satellite. */
@@ -53,6 +54,11 @@ export function SatelliteEntities({ orbit, liveSat, showOrbits }: SatelliteEntit
       {/* ── Ground Track ──────────────────────────────────────────────────── */}
       {liveSat.showGroundTrack && (
         <GroundTrack liveSat={liveSat} orbit={orbit} />
+      )}
+
+      {/* ── Swath Coverage ─────────────────────────────────────────────────── */}
+      {liveSat.showSwath && (
+        <Swath liveSat={liveSat} orbit={orbit} />
       )}
 
       {/* ── Satellite Icon & Label ──────────────────────────────────────────── */}
