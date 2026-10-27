@@ -62,7 +62,7 @@ export default function CesiumViewer({
   simulationSpeed,
   isPlaying = true,
   showOrbits,
-  showGrid = true,
+  showGrid = false,
   baseMapMode,
 }: CesiumViewerProps) {
   const viewerRef = useRef<CesiumComponentRef<Cesium.Viewer>>(null);

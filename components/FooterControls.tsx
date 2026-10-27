@@ -21,7 +21,7 @@ export default function FooterControls({
   simulationSpeed, onSimulationSpeedChange,
   isPlaying = true, onTogglePlayPause,
   showOrbits, onShowOrbitsChange,
-  showGrid = true, onShowGridChange,
+  showGrid = false, onShowGridChange,
   baseMapMode, onBaseMapChange
 }: FooterControlsProps) {
   return (

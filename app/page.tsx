@@ -20,7 +20,7 @@ export default function Home() {
   const [simulationSpeed, setSimulationSpeed] = useState<number>(1);
   const [isPlaying, setIsPlaying] = useState<boolean>(true);
   const [showOrbits, setShowOrbits] = useState<boolean>(true);
-  const [showGrid, setShowGrid] = useState<boolean>(true);
+  const [showGrid, setShowGrid] = useState<boolean>(false);
   const [baseMapMode, setBaseMapMode] = useState<"natural" | "grid">("natural");
 
   const handleTogglePlayPause = () => {
