@@ -2,33 +2,37 @@
 
 /**
  * cesium/Swath.tsx
- * Renders the ground swath coverage corridor along the satellite's orbital track on Earth.
+ * Renders the compact, dynamic ground swath coverage ribbon that smoothly follows
+ * the satellite's live orbital position, styled cleanly like satvis.space.
  *
- * A swath represents the ground area observed/covered by the satellite's sensor/payload
- * as it orbits Earth. It is rendered as a surface polygon ribbon bounded by left and right
- * ground tracks offset perpendicularly from the orbital track.
+ * Characteristics:
+ *  - Compact swath length (trailing 8% of orbit, leading 1.5% ahead).
+ *  - Real-time continuous analytical angle tracking for buttery smooth animation.
+ *  - Semi-translucent glowing footprint with crisp edge boundaries.
  */
 
-import React, { useMemo } from "react";
+import React, { useMemo, useRef } from "react";
 import { Entity, PolygonGraphics, PolylineGraphics } from "resium";
 import * as Cesium from "cesium";
 import type { SatelliteData, OrbitPath } from "@/lib/types";
+import { animClock } from "./animClock";
 
 /**
  * Calculates the total swath ground width (in kilometres) for a satellite.
  * If sat.swathWidthKm is explicitly specified, returns that.
- * Otherwise, calculates from sensor FOV (or camera FOV, or defaults to 25°).
+ * Otherwise, calculates from sensor FOV (or camera FOV, or defaults to 18° for a compact clean corridor).
  */
 export function getSatelliteSwathWidthKm(sat: SatelliteData): number {
   if (sat.swathWidthKm && sat.swathWidthKm > 0) {
     return Math.round(sat.swathWidthKm);
   }
 
-  const fovDeg = sat.sensor?.fovDeg ?? sat.camera?.fovDeg ?? 25;
+  // Default to a tighter, realistic FOV so the swath is compact and elegant
+  const fovDeg = sat.sensor?.fovDeg ?? sat.camera?.fovDeg ?? 18;
   const altitudeKm = sat.altitudeKm;
   const halfFovRad = Cesium.Math.toRadians(fovDeg / 2);
-  const halfSwathKm = Math.max(altitudeKm * Math.tan(halfFovRad), 50);
-  const fullSwathKm = Math.min(halfSwathKm * 2, 3000);
+  const halfSwathKm = Math.max(altitudeKm * Math.tan(halfFovRad), 30);
+  const fullSwathKm = Math.min(halfSwathKm * 2, 1200);
   return Math.round(fullSwathKm);
 }
 
@@ -40,57 +44,81 @@ export function getSatelliteSwathWidthMeters(sat: SatelliteData): number {
 }
 
 /**
- * Generate boundary points for the swath ribbon across the orbital ground track.
+ * Computes smooth dynamic swath boundary coordinates (polygon and borders)
+ * for a satellite at current simulated time `timeSec`.
  *
- * @param altitudeKm      Orbit altitude in kilometres.
- * @param inclinationDeg  Orbit inclination in degrees.
- * @param swathWidthMeters Full width of swath across track in metres.
- * @param samples         Number of samples along the orbit track (default 180).
+ * Designed to be compact:
+ *   - trailRatio: 0.08 (~8% of orbit length trailing behind)
+ *   - leadRatio: 0.015 (~1.5% of orbit length leading ahead under the satellite)
+ *
+ * Uses continuous unwrapped analytical orbital coordinates for zero-jitter animation.
  */
-export function generateSwathCoordinates(
-  altitudeKm: number,
-  inclinationDeg: number,
+export function computeSmoothDynamicSwathGeometry(
+  sat: SatelliteData,
+  timeSec: number,
   swathWidthMeters: number,
-  samples = 180
+  samples = 54,
+  trailRatio = 0.08,
+  leadRatio = 0.015
 ): {
-  polygonHierarchy: Cesium.PolygonHierarchy;
+  hierarchy: Cesium.PolygonHierarchy;
   leftBorder: Cesium.Cartesian3[];
   rightBorder: Cesium.Cartesian3[];
+  leadingEdge: Cesium.Cartesian3[];
+  trailingEdge: Cesium.Cartesian3[];
 } {
   const earthRadius = 6_371_000;
-  // 1,800 m above Earth MSL to prevent z-fighting with globe imagery/terrain
-  const surfaceRadius = earthRadius + 1_800;
-  const incRad = Cesium.Math.toRadians(inclinationDeg);
+  // 1,600 m above Earth MSL to prevent z-fighting with imagery/terrain
+  const surfaceRadius = earthRadius + 1_600;
   const halfWidth = swathWidthMeters / 2;
+  const incRad = Cesium.Math.toRadians(sat.inclinationDeg);
+  const cosInc = Math.cos(incRad);
+  const sinInc = Math.sin(incRad);
 
-  const leftPoints: Cesium.Cartesian3[] = [];
-  const rightPoints: Cesium.Cartesian3[] = [];
+  // Satellite's continuous orbital angle (unwrapped, perfectly continuous)
+  const speed = sat.speedMultiplier || 1;
+  const period = Math.max(sat.periodSec, 1);
+  const currentAngle = (timeSec * speed * Cesium.Math.TWO_PI) / period;
+
+  // Compact trailing and leading angular extent
+  const trailAngle = Cesium.Math.TWO_PI * trailRatio;
+  const leadAngle = Cesium.Math.TWO_PI * leadRatio;
+  const startAngle = currentAngle - trailAngle;
+  const totalAngle = trailAngle + leadAngle;
+
+  const leftPoints: Cesium.Cartesian3[] = new Array(samples + 1);
+  const rightPoints: Cesium.Cartesian3[] = new Array(samples + 1);
 
   for (let i = 0; i <= samples; i++) {
-    const u = (i / samples) * Cesium.Math.TWO_PI;
-    // Central ground track point
-    const cx = surfaceRadius * Math.cos(u);
-    const cy = surfaceRadius * Math.sin(u) * Math.cos(incRad);
-    const cz = surfaceRadius * Math.sin(u) * Math.sin(incRad);
+    const fraction = i / samples;
+    const u = startAngle + fraction * totalAngle;
+
+    const cosU = Math.cos(u);
+    const sinU = Math.sin(u);
+
+    // Sub-satellite ground center point on sphere
+    const cx = surfaceRadius * cosU;
+    const cy = surfaceRadius * sinU * cosInc;
+    const cz = surfaceRadius * sinU * sinInc;
     const center = new Cesium.Cartesian3(cx, cy, cz);
 
-    // Radial up vector
+    // Radial surface normal unit vector
     const up = Cesium.Cartesian3.normalize(center, new Cesium.Cartesian3());
 
-    // Tangent velocity vector along orbit direction: d/du [cos(u), sin(u)cos(i), sin(u)sin(i)]
-    const tx = -Math.sin(u);
-    const ty = Math.cos(u) * Math.cos(incRad);
-    const tz = Math.cos(u) * Math.sin(incRad);
+    // Instantaneous orbital velocity tangent unit vector
+    const tx = -sinU;
+    const ty = cosU * cosInc;
+    const tz = cosU * sinInc;
     const tangent = Cesium.Cartesian3.normalize(
       new Cesium.Cartesian3(tx, ty, tz),
       new Cesium.Cartesian3()
     );
 
-    // Cross-track normal perpendicular to track on surface = cross(tangent, up)
+    // Cross-track normal perpendicular to flight path on surface
     const crossTrack = Cesium.Cartesian3.cross(tangent, up, new Cesium.Cartesian3());
     Cesium.Cartesian3.normalize(crossTrack, crossTrack);
 
-    // Left point: center + halfWidth * crossTrack
+    // Left boundary offset
     const leftOffset = Cesium.Cartesian3.multiplyByScalar(
       crossTrack,
       halfWidth,
@@ -104,7 +132,7 @@ export function generateSwathCoordinates(
       new Cesium.Cartesian3()
     );
 
-    // Right point: center - halfWidth * crossTrack
+    // Right boundary offset
     const rightRaw = Cesium.Cartesian3.subtract(center, leftOffset, new Cesium.Cartesian3());
     const rightMag = Cesium.Cartesian3.magnitude(rightRaw);
     const right = Cesium.Cartesian3.multiplyByScalar(
@@ -113,17 +141,28 @@ export function generateSwathCoordinates(
       new Cesium.Cartesian3()
     );
 
-    leftPoints.push(left);
-    rightPoints.push(right);
+    leftPoints[i] = left;
+    rightPoints[i] = right;
   }
 
-  // Build closed polygon boundary: left boundary forwards + right boundary backwards
-  const polygonPoints = [...leftPoints, ...[...rightPoints].reverse()];
+  // Construct closed boundary polygon: left forwards + right in reverse
+  const polygonPoints: Cesium.Cartesian3[] = new Array(leftPoints.length + rightPoints.length);
+  for (let i = 0; i < leftPoints.length; i++) {
+    polygonPoints[i] = leftPoints[i];
+  }
+  for (let i = 0; i < rightPoints.length; i++) {
+    polygonPoints[leftPoints.length + i] = rightPoints[rightPoints.length - 1 - i];
+  }
+
+  const leadingEdge = [leftPoints[leftPoints.length - 1], rightPoints[rightPoints.length - 1]];
+  const trailingEdge = [leftPoints[0], rightPoints[0]];
 
   return {
-    polygonHierarchy: new Cesium.PolygonHierarchy(polygonPoints),
+    hierarchy: new Cesium.PolygonHierarchy(polygonPoints),
     leftBorder: leftPoints,
     rightBorder: rightPoints,
+    leadingEdge,
+    trailingEdge,
   };
 }
 
@@ -135,62 +174,124 @@ export interface SwathProps {
 }
 
 export function Swath({ liveSat, orbit }: SwathProps) {
-  const swathWidth = useMemo(() => {
-    return getSatelliteSwathWidthMeters(liveSat);
-  }, [liveSat]);
-
-  const { polygonHierarchy, leftBorder, rightBorder } = useMemo(() => {
-    return generateSwathCoordinates(
-      liveSat.altitudeKm,
-      liveSat.inclinationDeg,
-      swathWidth,
-      180
-    );
-  }, [liveSat.altitudeKm, liveSat.inclinationDeg, swathWidth]);
-
-  // Use cyan / satellite color theme for swath with translucent fill
+  // Swath color with cyan/satellite glow theme
   const swathColor = useMemo(() => {
-    return orbit.cesiumColor || Cesium.Color.CYAN;
+    return orbit.cesiumColor || Cesium.Color.fromCssColorString("#38bdf8");
   }, [orbit.cesiumColor]);
+
+  // Per-frame cache to guarantee 60 FPS animation with zero redundant geometry work
+  const geomCacheRef = useRef<{
+    timeSec: number;
+    swathWidth: number;
+    data: ReturnType<typeof computeSmoothDynamicSwathGeometry>;
+  } | null>(null);
+
+  const getGeometry = () => {
+    const timeSec = animClock.elapsedTime;
+    const width = getSatelliteSwathWidthMeters(liveSat);
+    if (
+      !geomCacheRef.current ||
+      geomCacheRef.current.timeSec !== timeSec ||
+      geomCacheRef.current.swathWidth !== width
+    ) {
+      geomCacheRef.current = {
+        timeSec,
+        swathWidth: width,
+        data: computeSmoothDynamicSwathGeometry(liveSat, timeSec, width, 54, 0.08, 0.015),
+      };
+    }
+    return geomCacheRef.current.data;
+  };
+
+  // Dynamic CallbackProperties for real-time smooth animation
+  const hierarchyProperty = useMemo(() => {
+    return new Cesium.CallbackProperty(() => {
+      return getGeometry().hierarchy;
+    }, false);
+  }, [liveSat.id]);
+
+  const leftBorderProperty = useMemo(() => {
+    return new Cesium.CallbackProperty(() => {
+      return getGeometry().leftBorder;
+    }, false);
+  }, [liveSat.id]);
+
+  const rightBorderProperty = useMemo(() => {
+    return new Cesium.CallbackProperty(() => {
+      return getGeometry().rightBorder;
+    }, false);
+  }, [liveSat.id]);
+
+  const leadingEdgeProperty = useMemo(() => {
+    return new Cesium.CallbackProperty(() => {
+      return getGeometry().leadingEdge;
+    }, false);
+  }, [liveSat.id]);
+
+  const trailingEdgeProperty = useMemo(() => {
+    return new Cesium.CallbackProperty(() => {
+      return getGeometry().trailingEdge;
+    }, false);
+  }, [liveSat.id]);
 
   return (
     <React.Fragment>
-      {/* ── Swath Ground Ribbon Surface Polygon ──────────────────────────── */}
+      {/* ── Compact Swath Ground Ribbon Polygon ─────────────────────────── */}
       <Entity name={`${liveSat.name} Swath Ribbon`}>
         <PolygonGraphics
-          hierarchy={polygonHierarchy}
-          material={swathColor.withAlpha(0.18)}
-          height={1800}
+          hierarchy={hierarchyProperty as unknown as Cesium.Property}
+          material={swathColor.withAlpha(0.24)}
+          height={1600}
         />
       </Entity>
 
-      {/* ── Left Swath Edge Boundary Polyline ────────────────────────────── */}
+      {/* ── Left Swath Edge Boundary Polyline ───────────────────────────── */}
       <Entity name={`${liveSat.name} Swath Left Edge`}>
         <PolylineGraphics
-          positions={leftBorder}
+          positions={leftBorderProperty as unknown as Cesium.Cartesian3[]}
           width={1.5}
           arcType={Cesium.ArcType.NONE}
           material={
             new Cesium.PolylineDashMaterialProperty({
-              color: swathColor.withAlpha(0.65),
-              dashLength: 12.0,
+              color: swathColor.withAlpha(0.85),
+              dashLength: 10.0,
             })
           }
         />
       </Entity>
 
-      {/* ── Right Swath Edge Boundary Polyline ───────────────────────────── */}
+      {/* ── Right Swath Edge Boundary Polyline ──────────────────────────── */}
       <Entity name={`${liveSat.name} Swath Right Edge`}>
         <PolylineGraphics
-          positions={rightBorder}
+          positions={rightBorderProperty as unknown as Cesium.Cartesian3[]}
           width={1.5}
           arcType={Cesium.ArcType.NONE}
           material={
             new Cesium.PolylineDashMaterialProperty({
-              color: swathColor.withAlpha(0.65),
-              dashLength: 12.0,
+              color: swathColor.withAlpha(0.85),
+              dashLength: 10.0,
             })
           }
+        />
+      </Entity>
+
+      {/* ── Swath Leading Front Edge Polyline ───────────────────────────── */}
+      <Entity name={`${liveSat.name} Swath Front Edge`}>
+        <PolylineGraphics
+          positions={leadingEdgeProperty as unknown as Cesium.Cartesian3[]}
+          width={2.0}
+          arcType={Cesium.ArcType.NONE}
+          material={swathColor.withAlpha(0.95)}
+        />
+      </Entity>
+
+      {/* ── Swath Trailing Rear Edge Polyline ───────────────────────────── */}
+      <Entity name={`${liveSat.name} Swath Rear Edge`}>
+        <PolylineGraphics
+          positions={trailingEdgeProperty as unknown as Cesium.Cartesian3[]}
+          width={1.5}
+          arcType={Cesium.ArcType.NONE}
+          material={swathColor.withAlpha(0.5)}
         />
       </Entity>
     </React.Fragment>

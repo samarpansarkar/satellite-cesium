@@ -85,7 +85,7 @@ export interface ImageryProviders {
   /** TMS (Tile Map Service) 1.0 tiles from a local MapProxy / GeoServer (async). */
   dockerTMSProvider: Promise<Cesium.TileMapServiceImageryProvider> | undefined;
   /** Quantized-Mesh 3-D terrain from a local Cesium Terrain Server (async). */
-  dockerTerrainProvider: Promise<Cesium.CesiumTerrainProvider> | undefined;
+  dockerTerrainProvider: Promise<Cesium.CesiumTerrainProvider | undefined> | undefined;
   /** OGC WMS from a local GeoServer / MapServer instance. */
   dockerWMSProvider: Cesium.WebMapServiceImageryProvider | undefined;
 }

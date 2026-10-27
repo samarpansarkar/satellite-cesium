@@ -78,17 +78,22 @@ export function useImageryProviders(): ImageryProviders {
   }, []);
 
   // ── OPTION C: Cesium Quantized-Mesh Terrain ───────────────────────────────
-  // GET http://localhost:8080/tilesets/terrain/{z}/{x}/{y}.terrain
+  // GET http://localhost:8000/terrain/{z}/{x}/{y}.terrain
   const dockerTerrainProvider = useMemo(() => {
+    // Only attempt to connect if explicitly enabled in local storage or environment
     if (typeof window === "undefined") return undefined;
+    if (process.env.NEXT_PUBLIC_ENABLE_LOCAL_TERRAIN !== "true") return undefined;
     return Cesium.CesiumTerrainProvider.fromUrl(
-      "http://localhost:8080/tilesets/terrain/",
+      "http://localhost:8000/terrain/",
       {
         requestVertexNormals: true,  // enables lighting / slope shading
         requestWaterMask: false,
         credit: new Cesium.Credit("Docker Terrain Server"),
       }
-    );
+    ).catch((err) => {
+      console.warn("Docker Terrain Server not available or invalid:", err);
+      return undefined;
+    });
   }, []);
 
   // ── OPTION D: WMS (Web Map Service) ──────────────────────────────────────
