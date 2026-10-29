@@ -68,3 +68,63 @@ export function getSensorFootprintCenter(
     new Cesium.Cartesian3()
   );
 }
+
+const UNIT_Z = new Cesium.Cartesian3(0, 0, 1);
+const UNIT_X = new Cesium.Cartesian3(1, 0, 0);
+
+/**
+ * Computes the orientation quaternion for a Cesium cylinder or cone entity.
+ * In Cesium, a default cylinder is aligned with its height along local Z (+Z = top, -Z = bottom).
+ * With topRadius = 0 (cone tip at satellite) and bottomRadius = R (cone base at ground footprint),
+ * the vector from bottom to top is (satPos - groundPos).
+ * This function returns the rotation that aligns (0, 0, 1) with normalize(satPos - groundPos).
+ */
+export function computeCylinderOrientation(
+  satPos: Cesium.Cartesian3,
+  groundPos: Cesium.Cartesian3,
+  result = new Cesium.Quaternion()
+): Cesium.Quaternion {
+  const dir = Cesium.Cartesian3.subtract(satPos, groundPos, new Cesium.Cartesian3());
+  Cesium.Cartesian3.normalize(dir, dir);
+
+  const dot = Cesium.Cartesian3.dot(UNIT_Z, dir);
+  if (dot >= 0.999999) {
+    return Cesium.Quaternion.clone(Cesium.Quaternion.IDENTITY, result);
+  }
+  if (dot <= -0.999999) {
+    return Cesium.Quaternion.fromAxisAngle(UNIT_X, Math.PI, result);
+  }
+
+  const axis = Cesium.Cartesian3.cross(UNIT_Z, dir, new Cesium.Cartesian3());
+  Cesium.Cartesian3.normalize(axis, axis);
+  const angle = Math.acos(Math.max(-1, Math.min(1, dot)));
+  return Cesium.Quaternion.fromAxisAngle(axis, angle, result);
+}
+
+/**
+ * Computes a 3D Cartesian point on the perimeter of a circular ground footprint.
+ * Used for edge rays and animated rotating scanner sweep needles.
+ */
+export function getFootprintPerimeterPoint(
+  groundPos: Cesium.Cartesian3,
+  radius: number,
+  angleRad: number,
+  normal?: Cesium.Cartesian3
+): Cesium.Cartesian3 {
+  const n = normal
+    ? Cesium.Cartesian3.normalize(normal, new Cesium.Cartesian3())
+    : Cesium.Cartesian3.normalize(groundPos, new Cesium.Cartesian3());
+  const ref = Math.abs(n.z) < 0.9 ? UNIT_Z : UNIT_X;
+  const u = Cesium.Cartesian3.cross(n, ref, new Cesium.Cartesian3());
+  Cesium.Cartesian3.normalize(u, u);
+  const v = Cesium.Cartesian3.cross(n, u, new Cesium.Cartesian3());
+  Cesium.Cartesian3.normalize(v, v);
+
+  const offset = Cesium.Cartesian3.add(
+    Cesium.Cartesian3.multiplyByScalar(u, radius * Math.cos(angleRad), new Cesium.Cartesian3()),
+    Cesium.Cartesian3.multiplyByScalar(v, radius * Math.sin(angleRad), new Cesium.Cartesian3()),
+    new Cesium.Cartesian3()
+  );
+  return Cesium.Cartesian3.add(groundPos, offset, new Cesium.Cartesian3());
+}
+

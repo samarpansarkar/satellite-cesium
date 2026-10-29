@@ -15,7 +15,11 @@ import * as Cesium from "cesium";
 import type { SatelliteData, OrbitPath } from "@/lib/types";
 import { animClock } from "./animClock";
 import { generateOrbitPath, getCachedSatPosition, getCachedSubPosition } from "./orbitUtils";
-import { getSensorFootprintCenter } from "./sensorUtils";
+import {
+  getSensorFootprintCenter,
+  computeCylinderOrientation,
+  getFootprintPerimeterPoint,
+} from "./sensorUtils";
 import { GROUND_STATION } from "./config";
 
 // Re-export so existing imports from this file continue to work
@@ -56,12 +60,41 @@ export function useOrbitPaths(satellites: SatelliteData[]): OrbitPath[] {
       // ── Camera cone callbacks ──────────────────────────────────────────────
       const cameraWithProps = initialSat.camera
         ? {
+            conePositionProperty: new Cesium.CallbackProperty(() => {
+              const sat = getSat();
+              const satPos = getCachedSatPosition(sat, animClock.elapsedTime);
+              const groundPos = getCachedSubPosition(sat, animClock.elapsedTime);
+              return Cesium.Cartesian3.midpoint(satPos, groundPos, new Cesium.Cartesian3());
+            }, false),
+            coneOrientationProperty: new Cesium.CallbackProperty(() => {
+              const sat = getSat();
+              const satPos = getCachedSatPosition(sat, animClock.elapsedTime);
+              const groundPos = getCachedSubPosition(sat, animClock.elapsedTime);
+              return computeCylinderOrientation(satPos, groundPos);
+            }, false),
+            coneLengthProperty: new Cesium.CallbackProperty(() => {
+              const sat = getSat();
+              const satPos = getCachedSatPosition(sat, animClock.elapsedTime);
+              const groundPos = getCachedSubPosition(sat, animClock.elapsedTime);
+              return Cesium.Cartesian3.distance(satPos, groundPos);
+            }, false),
             beamProperty: new Cesium.CallbackProperty(() => {
               const sat = getSat();
               return [
                 getCachedSatPosition(sat, animClock.elapsedTime),
                 getCachedSubPosition(sat, animClock.elapsedTime),
               ];
+            }, false),
+            sweepRayProperty: new Cesium.CallbackProperty(() => {
+              const sat = getSat();
+              const satPos = getCachedSatPosition(sat, animClock.elapsedTime);
+              const groundPos = getCachedSubPosition(sat, animClock.elapsedTime);
+              const fov = sat.camera?.fovDeg || 30;
+              const altM = sat.altitudeKm * 1000;
+              const radius = Math.max(altM * Math.tan(Cesium.Math.toRadians(fov / 2)), 50_000);
+              const angle = animClock.elapsedTime * 2.5;
+              const sweepPt = getFootprintPerimeterPoint(groundPos, radius, angle);
+              return [satPos, sweepPt, groundPos];
             }, false),
             subPositionProperty: new Cesium.CallbackProperty(() => {
               return getCachedSubPosition(getSat(), animClock.elapsedTime);
@@ -78,6 +111,24 @@ export function useOrbitPaths(satellites: SatelliteData[]): OrbitPath[] {
       // ── Sensor footprint callbacks ─────────────────────────────────────────
       const sensorWithProps = initialSat.sensor
         ? {
+            conePositionProperty: new Cesium.CallbackProperty(() => {
+              const sat = getSat();
+              const satPos = getCachedSatPosition(sat, animClock.elapsedTime);
+              const groundPos = getSensorFootprintCenter(sat, animClock.elapsedTime);
+              return Cesium.Cartesian3.midpoint(satPos, groundPos, new Cesium.Cartesian3());
+            }, false),
+            coneOrientationProperty: new Cesium.CallbackProperty(() => {
+              const sat = getSat();
+              const satPos = getCachedSatPosition(sat, animClock.elapsedTime);
+              const groundPos = getSensorFootprintCenter(sat, animClock.elapsedTime);
+              return computeCylinderOrientation(satPos, groundPos);
+            }, false),
+            coneLengthProperty: new Cesium.CallbackProperty(() => {
+              const sat = getSat();
+              const satPos = getCachedSatPosition(sat, animClock.elapsedTime);
+              const groundPos = getSensorFootprintCenter(sat, animClock.elapsedTime);
+              return Cesium.Cartesian3.distance(satPos, groundPos);
+            }, false),
             footprintCenterProperty: new Cesium.CallbackProperty(() => {
               return getSensorFootprintCenter(getSat(), animClock.elapsedTime);
             }, false),
@@ -87,6 +138,17 @@ export function useOrbitPaths(satellites: SatelliteData[]): OrbitPath[] {
                 getCachedSatPosition(sat, animClock.elapsedTime),
                 getSensorFootprintCenter(sat, animClock.elapsedTime),
               ];
+            }, false),
+            sweepRayProperty: new Cesium.CallbackProperty(() => {
+              const sat = getSat();
+              const satPos = getCachedSatPosition(sat, animClock.elapsedTime);
+              const groundPos = getSensorFootprintCenter(sat, animClock.elapsedTime);
+              const fov = sat.sensor?.fovDeg || 60;
+              const altM = sat.altitudeKm * 1000;
+              const radius = Math.max(altM * Math.tan(Cesium.Math.toRadians(fov / 2)), 100_000);
+              const angle = animClock.elapsedTime * 2.0;
+              const sweepPt = getFootprintPerimeterPoint(groundPos, radius, angle);
+              return [satPos, sweepPt, groundPos];
             }, false),
             radiusProperty: new Cesium.CallbackProperty(() => {
               const sat = getSat();

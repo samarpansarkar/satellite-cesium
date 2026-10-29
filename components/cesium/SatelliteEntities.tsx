@@ -15,13 +15,17 @@ import {
   PolylineGraphics,
   BillboardGraphics,
   LabelGraphics,
-  EllipseGraphics,
 } from "resium";
 import * as Cesium from "cesium";
 import type { SatelliteData, OrbitPath } from "@/lib/types";
 import { SATELLITE_ICON } from "./config";
 import { GroundTrack } from "./GroundTrack";
 import { Swath } from "./Swath";
+import { animClock } from "./animClock";
+
+import { ScanningCone } from "./ScanningCone";
+import { getCachedSatPosition, getCachedSubPosition } from "./orbitUtils";
+import { getSensorFootprintCenter } from "./sensorUtils";
 
 interface SatelliteEntitiesProps {
   /** Memoised orbit path descriptor for this satellite. */
@@ -80,94 +84,36 @@ export function SatelliteEntities({ orbit, liveSat, showOrbits }: SatelliteEntit
         />
       </Entity>
 
-      {/* ── Sensor Radar Footprint & Beam ──────────────────────────────────── */}
+      {/* ── Sensor Radar Torch Cone Scanning ───────────────────────────────── */}
       {orbit.sensorWithProps && liveSat.sensor?.isActive && (
-        <React.Fragment>
-          {/* Footprint ellipse on the ground */}
-          <Entity
-            position={
-              orbit.sensorWithProps.footprintCenterProperty as unknown as Cesium.Cartesian3
-            }
-          >
-            <EllipseGraphics
-              height={0}
-              semiMajorAxis={
-                orbit.sensorWithProps.semiMajorProperty as unknown as Cesium.Property
-              }
-              semiMinorAxis={
-                orbit.sensorWithProps.semiMinorProperty as unknown as Cesium.Property
-              }
-              rotation={
-                orbit.sensorWithProps.rotationProperty as unknown as Cesium.Property
-              }
-              material={
-                new Cesium.ColorMaterialProperty(Cesium.Color.ORANGE.withAlpha(0.25))
-              }
-              outline={true}
-              outlineColor={Cesium.Color.ORANGE.withAlpha(0.95)}
-              outlineWidth={3}
-            />
-          </Entity>
-
-          {/* Dashed beam line from satellite to footprint centre */}
-          <Entity>
-            <PolylineGraphics
-              positions={
-                orbit.sensorWithProps.beamProperty as unknown as Cesium.Cartesian3[]
-              }
-              width={2.5}
-              arcType={Cesium.ArcType.NONE}
-              material={
-                new Cesium.PolylineDashMaterialProperty({
-                  color: Cesium.Color.ORANGE.withAlpha(0.75),
-                  dashLength: 25.0,
-                })
-              }
-            />
-          </Entity>
-        </React.Fragment>
+        <ScanningCone
+          type="sensor"
+          color={Cesium.Color.ORANGE}
+          accentColor={Cesium.Color.GOLD}
+          satPosCallback={() => getCachedSatPosition(liveSat, animClock.elapsedTime)}
+          groundPosCallback={() => getSensorFootprintCenter(liveSat, animClock.elapsedTime)}
+          radiusCallback={() => {
+            const fov = liveSat.sensor?.fovDeg || 60;
+            const altM = liveSat.altitudeKm * 1000;
+            return Math.max(altM * Math.tan(Cesium.Math.toRadians(fov / 2)), 100_000);
+          }}
+        />
       )}
 
-      {/* ── Camera Scanner Cone & Beam ─────────────────────────────────────── */}
+      {/* ── Camera Scanner Torch Cone Scanning ─────────────────────────────── */}
       {orbit.cameraWithProps && liveSat.camera?.isActive && (
-        <React.Fragment>
-          {/* Footprint ellipse on the ground */}
-          <Entity
-            position={
-              orbit.cameraWithProps.subPositionProperty as unknown as Cesium.Cartesian3
-            }
-          >
-            <EllipseGraphics
-              semiMajorAxis={
-                orbit.cameraWithProps.radiusProperty as unknown as Cesium.Property
-              }
-              semiMinorAxis={
-                orbit.cameraWithProps.radiusProperty as unknown as Cesium.Property
-              }
-              material={Cesium.Color.CYAN.withAlpha(0.5)}
-              outline={true}
-              outlineColor={Cesium.Color.CYAN.withAlpha(0.9)}
-              outlineWidth={3}
-            />
-          </Entity>
-
-          {/* Dashed beam line from satellite to ground point */}
-          <Entity>
-            <PolylineGraphics
-              positions={
-                orbit.cameraWithProps.beamProperty as unknown as Cesium.Cartesian3[]
-              }
-              width={4}
-              arcType={Cesium.ArcType.NONE}
-              material={
-                new Cesium.PolylineDashMaterialProperty({
-                  color: Cesium.Color.CYAN.withAlpha(0.8),
-                  dashLength: 40.0,
-                })
-              }
-            />
-          </Entity>
-        </React.Fragment>
+        <ScanningCone
+          type="camera"
+          color={Cesium.Color.CYAN}
+          accentColor={Cesium.Color.WHITE}
+          satPosCallback={() => getCachedSatPosition(liveSat, animClock.elapsedTime)}
+          groundPosCallback={() => getCachedSubPosition(liveSat, animClock.elapsedTime)}
+          radiusCallback={() => {
+            const fov = liveSat.camera?.fovDeg || 30;
+            const altM = liveSat.altitudeKm * 1000;
+            return Math.max(altM * Math.tan(Cesium.Math.toRadians(fov / 2)), 50_000);
+          }}
+        />
       )}
 
       {/* ── Communication Laser Link ───────────────────────────────────────── */}

@@ -100,14 +100,22 @@ export interface OrbitPath {
   subPositionProperty: Cesium.CallbackProperty;
 
   cameraWithProps: {
+    conePositionProperty: Cesium.CallbackProperty;
+    coneOrientationProperty: Cesium.CallbackProperty;
+    coneLengthProperty: Cesium.CallbackProperty;
     beamProperty: Cesium.CallbackProperty;
+    sweepRayProperty: Cesium.CallbackProperty;
     subPositionProperty: Cesium.CallbackProperty;
     radiusProperty: Cesium.CallbackProperty;
   } | null;
 
   sensorWithProps: {
+    conePositionProperty: Cesium.CallbackProperty;
+    coneOrientationProperty: Cesium.CallbackProperty;
+    coneLengthProperty: Cesium.CallbackProperty;
     footprintCenterProperty: Cesium.CallbackProperty;
     beamProperty: Cesium.CallbackProperty;
+    sweepRayProperty: Cesium.CallbackProperty;
     radiusProperty: Cesium.CallbackProperty;
     semiMajorProperty: Cesium.CallbackProperty;
     semiMinorProperty: Cesium.CallbackProperty;
