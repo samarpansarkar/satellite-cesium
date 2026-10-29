@@ -136,10 +136,10 @@ export default function TimeControlBar({
           data-playing={isPlaying}
         >
           {isPlaying && <span className="tcb-pulse" />}
-          {isPlaying ? (
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="white"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
+        {isPlaying ? (
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" style={{ color: '#38bdf8' }}><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
           ) : (
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="white"><path d="M8 5v14l11-7z"/></svg>
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" style={{ color: '#7a90a8' }}><path d="M8 5v14l11-7z"/></svg>
           )}
         </button>
 
