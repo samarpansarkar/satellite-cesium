@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import {
   Drawer, Box, Typography, List, ListItem, IconButton,
   ListItemIcon, Checkbox, ListItemText, Button, Collapse,
-  Switch, FormControlLabel,
+  Switch, FormControlLabel, Divider,
 } from "@mui/material";
 import InfoIcon from "@mui/icons-material/Info";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
@@ -150,84 +150,198 @@ export default function Sidebar({
                 </Box>
               </ListItem>
 
-              {/* ── Attachment Toggles ──────────────────────────────────── */}
+              {/* ── Tracks & Attachments Toggles ─────────────────────────── */}
               {hasAttachments && (
                 <Collapse in={isExpanded} timeout="auto" unmountOnExit>
                   <Box sx={{
-                    pl: 7, pr: 2, py: 1.5,
-                    display: 'flex', flexDirection: 'column', gap: 0.5,
+                    pl: 6, pr: 2.5, py: 1.5,
+                    display: 'flex', flexDirection: 'column', gap: 1.25,
                     bgcolor: 'action.hover',
                     borderBottom: '1px solid', borderColor: 'divider',
                   }}>
-                    <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600, mb: 0.5, letterSpacing: 0.5 }}>
-                      TRACKS & ATTACHMENTS
-                    </Typography>
+                    {/* ── 1. Tracks Section ──────────────────────────────── */}
+                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+                      <Typography
+                        variant="caption"
+                        sx={{
+                          color: 'text.secondary',
+                          fontWeight: 700,
+                          letterSpacing: 0.8,
+                          fontSize: '0.68rem',
+                          textTransform: 'uppercase',
+                          mb: 0.25,
+                        }}
+                      >
+                        Tracks
+                      </Typography>
 
-                    <FormControlLabel
-                      control={
-                        <Switch
-                          size="small"
-                          checked={Boolean(satData!.showGroundTrack)}
-                          onChange={(e) => onUpdateSatellite?.(satData!.id, {
-                            showGroundTrack: e.target.checked,
-                          })}
-                          sx={{
-                            "& .MuiSwitch-switchBase.Mui-checked": {
-                              color: "#f59e0b",
-                            },
-                            "& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track": {
-                              backgroundColor: "#f59e0b",
-                            },
-                          }}
+                      <FormControlLabel
+                        control={
+                          <Switch
+                            size="small"
+                            checked={Boolean(satData!.showGroundTrack)}
+                            onChange={(e) => onUpdateSatellite?.(satData!.id, {
+                              showGroundTrack: e.target.checked,
+                            })}
+                            sx={{
+                              "& .MuiSwitch-switchBase.Mui-checked": {
+                                color: "#f59e0b",
+                              },
+                              "& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track": {
+                                backgroundColor: "#f59e0b",
+                              },
+                            }}
+                          />
+                        }
+                        label={<Typography variant="body2" sx={{ fontWeight: 500 }}>Ground Track</Typography>}
+                      />
+
+                      <FormControlLabel
+                        control={
+                          <Switch
+                            size="small"
+                            checked={Boolean(satData!.showSwath)}
+                            onChange={(e) => onUpdateSatellite?.(satData!.id, {
+                              showSwath: e.target.checked,
+                            })}
+                            sx={{
+                              "& .MuiSwitch-switchBase.Mui-checked": {
+                                color: "#06b6d4",
+                              },
+                              "& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track": {
+                                backgroundColor: "#06b6d4",
+                              },
+                            }}
+                          />
+                        }
+                        label={<Typography variant="body2" sx={{ fontWeight: 500 }}>Swath Track</Typography>}
+                      />
+
+                      <FormControlLabel
+                        control={
+                          <Switch
+                            size="small"
+                            checked={satData!.showOrbit !== false}
+                            onChange={(e) => onUpdateSatellite?.(satData!.id, {
+                              showOrbit: e.target.checked,
+                            })}
+                            sx={{
+                              "& .MuiSwitch-switchBase.Mui-checked": {
+                                color: "#38bdf8",
+                              },
+                              "& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track": {
+                                backgroundColor: "#38bdf8",
+                              },
+                            }}
+                          />
+                        }
+                        label={<Typography variant="body2" sx={{ fontWeight: 500 }}>Orbit Path</Typography>}
+                      />
+                    </Box>
+
+                    <Divider sx={{ borderColor: 'divider', my: 0.25 }} />
+
+                    {/* ── 2. Attachments Section ─────────────────────────── */}
+                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+                      <Typography
+                        variant="caption"
+                        sx={{
+                          color: 'text.secondary',
+                          fontWeight: 700,
+                          letterSpacing: 0.8,
+                          fontSize: '0.68rem',
+                          textTransform: 'uppercase',
+                          mb: 0.25,
+                        }}
+                      >
+                        Attachments
+                      </Typography>
+
+                      {satData!.camera && (
+                        <FormControlLabel
+                          control={
+                            <Switch
+                              size="small"
+                              checked={Boolean(satData!.camera.isActive)}
+                              onChange={(e) => onUpdateSatellite?.(satData!.id, {
+                                camera: { ...satData!.camera!, isActive: e.target.checked },
+                              })}
+                              sx={{
+                                "& .MuiSwitch-switchBase.Mui-checked": {
+                                  color: "#38bdf8",
+                                },
+                                "& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track": {
+                                  backgroundColor: "#38bdf8",
+                                },
+                              }}
+                            />
+                          }
+                          label={
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
+                              <Typography variant="body2" sx={{ fontWeight: 500 }}>Camera</Typography>
+                              <Typography variant="caption" sx={{ color: 'text.secondary', fontSize: '0.7rem' }}>(Torch Light)</Typography>
+                            </Box>
+                          }
                         />
-                      }
-                      label={<Typography variant="body2" sx={{ fontWeight: 500 }}>Ground Track</Typography>}
-                    />
+                      )}
 
-                    {satData!.camera && (
-                      <FormControlLabel
-                        control={
-                          <Switch
-                            size="small"
-                            checked={satData!.camera.isActive}
-                            onChange={(e) => onUpdateSatellite?.(satData!.id, {
-                              camera: { ...satData!.camera!, isActive: e.target.checked },
-                            })}
-                          />
-                        }
-                        label={<Typography variant="body2" sx={{ fontWeight: 500 }}>Camera (Torch Light)</Typography>}
-                      />
-                    )}
+                      {satData!.sensor && (
+                        <FormControlLabel
+                          control={
+                            <Switch
+                              size="small"
+                              checked={Boolean(satData!.sensor.isActive)}
+                              onChange={(e) => onUpdateSatellite?.(satData!.id, {
+                                sensor: { ...satData!.sensor!, isActive: e.target.checked },
+                              })}
+                              sx={{
+                                "& .MuiSwitch-switchBase.Mui-checked": {
+                                  color: "#f97316",
+                                },
+                                "& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track": {
+                                  backgroundColor: "#f97316",
+                                },
+                              }}
+                            />
+                          }
+                          label={
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
+                              <Typography variant="body2" sx={{ fontWeight: 500 }}>Sensor</Typography>
+                              <Typography variant="caption" sx={{ color: 'text.secondary', fontSize: '0.7rem' }}>(Scanner Cone)</Typography>
+                            </Box>
+                          }
+                        />
+                      )}
 
-                    {satData!.sensor && (
-                      <FormControlLabel
-                        control={
-                          <Switch
-                            size="small"
-                            checked={satData!.sensor.isActive}
-                            onChange={(e) => onUpdateSatellite?.(satData!.id, {
-                              sensor: { ...satData!.sensor!, isActive: e.target.checked },
-                            })}
-                          />
-                        }
-                        label={<Typography variant="body2" sx={{ fontWeight: 500 }}>Sensor (Scanner Cone)</Typography>}
-                      />
-                    )}
+                      {satData!.communication && (
+                        <FormControlLabel
+                          control={
+                            <Switch
+                              size="small"
+                              checked={Boolean(satData!.communication.isActive)}
+                              onChange={(e) => onUpdateSatellite?.(satData!.id, {
+                                communication: { ...satData!.communication!, isActive: e.target.checked },
+                              })}
+                              sx={{
+                                "& .MuiSwitch-switchBase.Mui-checked": {
+                                  color: "#ec4899",
+                                },
+                                "& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track": {
+                                  backgroundColor: "#ec4899",
+                                },
+                              }}
+                            />
+                          }
+                          label={<Typography variant="body2" sx={{ fontWeight: 500 }}>Communication</Typography>}
+                        />
+                      )}
 
-                    {satData!.communication && (
-                      <FormControlLabel
-                        control={
-                          <Switch
-                            size="small"
-                            checked={satData!.communication.isActive}
-                            onChange={(e) => onUpdateSatellite?.(satData!.id, {
-                              communication: { ...satData!.communication!, isActive: e.target.checked },
-                            })}
-                          />
-                        }
-                        label={<Typography variant="body2" sx={{ fontWeight: 500 }}>Communication</Typography>}
-                      />
-                    )}
+                      {!satData!.camera && !satData!.sensor && !satData!.communication && (
+                        <Typography variant="caption" sx={{ color: 'text.secondary', fontStyle: 'italic', py: 0.5 }}>
+                          No attachments installed
+                        </Typography>
+                      )}
+                    </Box>
                   </Box>
                 </Collapse>
               )}

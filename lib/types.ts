@@ -43,6 +43,7 @@ export interface SatelliteData {
   showGroundTrack?: boolean;
   showSwath?: boolean;
   swathWidthKm?: number;
+  showOrbit?: boolean;
 }
 
 /** Raw response shape from the API before normalisation. */
@@ -63,6 +64,7 @@ export interface RawSatelliteResponse {
   showGroundTrack?: boolean;
   showSwath?: boolean;
   swathWidthKm?: number;
+  showOrbit?: boolean;
 }
 
 /** A single item from the `/getSatellites` name-list endpoint. */

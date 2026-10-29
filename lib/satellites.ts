@@ -91,6 +91,7 @@ export function useSatellites() {
               showGroundTrack: sat.showGroundTrack ?? false,
               showSwath: sat.showSwath ?? false,
               swathWidthKm: sat.swathWidthKm,
+              showOrbit: sat.showOrbit ?? true,
             })
           );
         }

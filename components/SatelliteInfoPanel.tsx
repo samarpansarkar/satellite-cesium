@@ -493,6 +493,14 @@ export default function SatelliteInfoPanel({
           <SectionLabel>Coverage</SectionLabel>
 
           <ToggleRow
+            label="Orbit Path"
+            description="Orbital trajectory line in space"
+            checked={satellite.showOrbit !== false}
+            accentColor={C.accent}
+            onChange={(v) => onUpdateSatellite?.(satellite.id, { showOrbit: v })}
+          />
+
+          <ToggleRow
             label="Ground Track"
             description="Project orbit onto Earth surface"
             checked={Boolean(satellite.showGroundTrack)}
