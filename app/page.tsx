@@ -8,6 +8,7 @@ import { Box } from "@mui/material";
 import Navbar from "@/components/Navbar";
 import Sidebar from "@/components/Sidebar";
 import FooterControls from "@/components/FooterControls";
+import TimeControlBar from "@/components/TimeControlBar";
 import SatelliteInfoPanel from "@/components/SatelliteInfoPanel";
 
 export default function Home() {
@@ -101,6 +102,13 @@ export default function Home() {
             onUpdateSensorInclination={updateSensorInclination}
           />
         </Box>
+
+        <TimeControlBar
+          isPlaying={isPlaying}
+          onTogglePlayPause={handleTogglePlayPause}
+          simulationSpeed={simulationSpeed}
+          onSimulationSpeedChange={handleSimulationSpeedChange}
+        />
 
         <FooterControls 
           simulationSpeed={simulationSpeed} 
