@@ -128,3 +128,95 @@ export function getFootprintPerimeterPoint(
   return Cesium.Cartesian3.add(groundPos, offset, new Cesium.Cartesian3());
 }
 
+/**
+ * Returns an array of Cartesian3 points forming a circle on the plane perpendicular
+ * to the given normal vector, centered at `center` with the specified `radius`.
+ * When `conformToSphere` is true, points are projected onto the spherical globe
+ * surface with an altitude offset so the ring drapes smoothly over the Earth.
+ */
+export function getCirclePoints(
+  center: Cesium.Cartesian3,
+  radius: number,
+  count: number,
+  normal?: Cesium.Cartesian3,
+  conformToSphere: boolean = false,
+  altitudeOffsetMeters: number = 1000
+): Cesium.Cartesian3[] {
+  const n = normal
+    ? Cesium.Cartesian3.normalize(normal, new Cesium.Cartesian3())
+    : Cesium.Cartesian3.normalize(center, new Cesium.Cartesian3());
+  const ref = Math.abs(n.z) < 0.9 ? UNIT_Z : UNIT_X;
+  const u = Cesium.Cartesian3.cross(n, ref, new Cesium.Cartesian3());
+  Cesium.Cartesian3.normalize(u, u);
+  const v = Cesium.Cartesian3.cross(n, u, new Cesium.Cartesian3());
+  Cesium.Cartesian3.normalize(v, v);
+
+  const centerDist = Cesium.Cartesian3.magnitude(center);
+  const targetDist = centerDist + altitudeOffsetMeters;
+
+  const pts: Cesium.Cartesian3[] = [];
+  for (let i = 0; i <= count; i++) {
+    const angle = (i / count) * Math.PI * 2;
+    const offset = Cesium.Cartesian3.add(
+      Cesium.Cartesian3.multiplyByScalar(u, radius * Math.cos(angle), new Cesium.Cartesian3()),
+      Cesium.Cartesian3.multiplyByScalar(v, radius * Math.sin(angle), new Cesium.Cartesian3()),
+      new Cesium.Cartesian3()
+    );
+    const rawPt = Cesium.Cartesian3.add(center, offset, new Cesium.Cartesian3());
+    if (conformToSphere) {
+      const dir = Cesium.Cartesian3.normalize(rawPt, new Cesium.Cartesian3());
+      pts.push(Cesium.Cartesian3.multiplyByScalar(dir, targetDist, new Cesium.Cartesian3()));
+    } else {
+      pts.push(rawPt);
+    }
+  }
+  return pts;
+}
+
+/**
+ * Returns an array of Cartesian3 points forming a 4-way crosshair target reticle
+ * across `center` with radius `radius`.
+ */
+export function getCrosshairPoints(
+  center: Cesium.Cartesian3,
+  radius: number,
+  normal?: Cesium.Cartesian3,
+  conformToSphere: boolean = true,
+  altitudeOffsetMeters: number = 1100
+): Cesium.Cartesian3[] {
+  const n = normal
+    ? Cesium.Cartesian3.normalize(normal, new Cesium.Cartesian3())
+    : Cesium.Cartesian3.normalize(center, new Cesium.Cartesian3());
+  const ref = Math.abs(n.z) < 0.9 ? UNIT_Z : UNIT_X;
+  const u = Cesium.Cartesian3.cross(n, ref, new Cesium.Cartesian3());
+  Cesium.Cartesian3.normalize(u, u);
+  const v = Cesium.Cartesian3.cross(n, u, new Cesium.Cartesian3());
+  Cesium.Cartesian3.normalize(v, v);
+
+  const centerDist = Cesium.Cartesian3.magnitude(center);
+  const targetDist = centerDist + altitudeOffsetMeters;
+
+  const project = (rawPt: Cesium.Cartesian3) => {
+    if (!conformToSphere) return rawPt;
+    const dir = Cesium.Cartesian3.normalize(rawPt, new Cesium.Cartesian3());
+    return Cesium.Cartesian3.multiplyByScalar(dir, targetDist, new Cesium.Cartesian3());
+  };
+
+  const c = project(center);
+  const p1 = project(
+    Cesium.Cartesian3.add(center, Cesium.Cartesian3.multiplyByScalar(u, radius, new Cesium.Cartesian3()), new Cesium.Cartesian3())
+  );
+  const p2 = project(
+    Cesium.Cartesian3.add(center, Cesium.Cartesian3.multiplyByScalar(u, -radius, new Cesium.Cartesian3()), new Cesium.Cartesian3())
+  );
+  const p3 = project(
+    Cesium.Cartesian3.add(center, Cesium.Cartesian3.multiplyByScalar(v, radius, new Cesium.Cartesian3()), new Cesium.Cartesian3())
+  );
+  const p4 = project(
+    Cesium.Cartesian3.add(center, Cesium.Cartesian3.multiplyByScalar(v, -radius, new Cesium.Cartesian3()), new Cesium.Cartesian3())
+  );
+
+  return [p1, c, p2, c, p3, c, p4];
+}
+
+

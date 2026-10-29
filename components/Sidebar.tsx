@@ -195,7 +195,7 @@ export default function Sidebar({
                             })}
                           />
                         }
-                        label={<Typography variant="body2" sx={{ fontWeight: 500 }}>Camera</Typography>}
+                        label={<Typography variant="body2" sx={{ fontWeight: 500 }}>Camera (Torch Light)</Typography>}
                       />
                     )}
 
@@ -210,7 +210,7 @@ export default function Sidebar({
                             })}
                           />
                         }
-                        label={<Typography variant="body2" sx={{ fontWeight: 500 }}>Sensor</Typography>}
+                        label={<Typography variant="body2" sx={{ fontWeight: 500 }}>Sensor (Scanner Cone)</Typography>}
                       />
                     )}
 

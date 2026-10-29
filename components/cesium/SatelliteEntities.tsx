@@ -24,6 +24,7 @@ import { Swath } from "./Swath";
 import { animClock } from "./animClock";
 
 import { ScanningCone } from "./ScanningCone";
+import { TorchLight } from "./TorchLight";
 import { getCachedSatPosition, getCachedSubPosition } from "./orbitUtils";
 import { getSensorFootprintCenter } from "./sensorUtils";
 
@@ -84,7 +85,7 @@ export function SatelliteEntities({ orbit, liveSat, showOrbits }: SatelliteEntit
         />
       </Entity>
 
-      {/* ── Sensor Radar Torch Cone Scanning ───────────────────────────────── */}
+      {/* ── Sensor Scanner Cone Effect ────────────────────────────────────── */}
       {orbit.sensorWithProps && liveSat.sensor?.isActive && (
         <ScanningCone
           type="sensor"
@@ -100,11 +101,10 @@ export function SatelliteEntities({ orbit, liveSat, showOrbits }: SatelliteEntit
         />
       )}
 
-      {/* ── Camera Scanner Torch Cone Scanning ─────────────────────────────── */}
+      {/* ── Camera Torch Light Effect ───────────────────────────────────────── */}
       {orbit.cameraWithProps && liveSat.camera?.isActive && (
-        <ScanningCone
-          type="camera"
-          color={Cesium.Color.CYAN}
+        <TorchLight
+          color={Cesium.Color.fromCssColorString("#38bdf8")}
           accentColor={Cesium.Color.WHITE}
           satPosCallback={() => getCachedSatPosition(liveSat, animClock.elapsedTime)}
           groundPosCallback={() => getCachedSubPosition(liveSat, animClock.elapsedTime)}

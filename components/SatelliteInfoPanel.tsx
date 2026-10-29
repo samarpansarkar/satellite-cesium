@@ -543,7 +543,7 @@ export default function SatelliteInfoPanel({
           {/* Camera */}
           <Box>
             <SubsystemHeader
-              label="Camera"
+              label="Camera (Torch Light)"
               hasDevice={Boolean(satellite.camera)}
               checked={Boolean(satellite.camera?.isActive)}
               onToggle={(v) =>
@@ -589,7 +589,7 @@ export default function SatelliteInfoPanel({
           {/* Sensor */}
           <Box>
             <SubsystemHeader
-              label="Sensor"
+              label="Sensor (Scanner Cone)"
               hasDevice={Boolean(satellite.sensor)}
               checked={Boolean(satellite.sensor?.isActive)}
               onToggle={(v) =>
