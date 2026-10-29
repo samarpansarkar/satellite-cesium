@@ -221,7 +221,7 @@ export default function Sidebar({
                         control={
                           <Switch
                             size="small"
-                            checked={satData!.showOrbit !== false}
+                            checked={Boolean(satData!.showOrbit)}
                             onChange={(e) => onUpdateSatellite?.(satData!.id, {
                               showOrbit: e.target.checked,
                             })}

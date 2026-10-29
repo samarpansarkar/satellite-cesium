@@ -45,7 +45,7 @@ export function SatelliteEntities({ orbit, liveSat, showOrbits }: SatelliteEntit
   return (
     <React.Fragment>
       {/* ── Orbit Path ─────────────────────────────────────────────────────── */}
-      {showOrbits && (liveSat.showOrbit !== false) && (
+      {showOrbits && Boolean(liveSat.showOrbit) && (
         <Entity name={`${orbit.name} Orbit`}>
           <PolylineGraphics
             positions={orbit.path}

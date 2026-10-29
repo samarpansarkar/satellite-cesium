@@ -495,7 +495,7 @@ export default function SatelliteInfoPanel({
           <ToggleRow
             label="Orbit Path"
             description="Orbital trajectory line in space"
-            checked={satellite.showOrbit !== false}
+            checked={Boolean(satellite.showOrbit)}
             accentColor={C.accent}
             onChange={(v) => onUpdateSatellite?.(satellite.id, { showOrbit: v })}
           />
