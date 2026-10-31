@@ -5,8 +5,6 @@ import CesiumWrapper from "@/components/CesiumWrapper";
 import type { SatelliteData } from "@/lib/types";
 import { useSatellites } from "@/lib/satellites";
 import { Box } from "@mui/material";
-import Navbar from "@/components/Navbar";
-import Sidebar from "@/components/Sidebar";
 import FooterControls from "@/components/FooterControls";
 import TimeControlBar from "@/components/TimeControlBar";
 import SatelliteInfoPanel from "@/components/SatelliteInfoPanel";
@@ -14,7 +12,6 @@ import ControlMenu from "@/components/ControlMenu";
 
 export default function Home() {
   const { availableNames, satellites, loadSatellitesByNames, updateSatellite, updateAttachmentFov, updateSensorInclination } = useSatellites();
-  const [drawerOpen, setDrawerOpen] = useState(false);
   const [selectedNames, setSelectedNames] = useState<string[]>([]);
   const [selectedSatId, setSelectedSatId] = useState<string | null>(null);
   const selectedSatInfo = satellites.find(s => s.id === selectedSatId) || null;
@@ -63,29 +60,14 @@ export default function Home() {
   };
 
   return (
-    <Box sx={{ display: "flex", flexDirection: "column", height: "100vh" }}>
-      <Navbar onMenuClick={() => setDrawerOpen(!drawerOpen)} />
-      
-      <Sidebar 
-        open={drawerOpen} 
-        onClose={() => setDrawerOpen(false)} 
-        availableNames={availableNames}
-        selectedNames={selectedNames}
-        satellites={satellites}
-        onToggleName={handleToggleName}
-        onUpdateSatellite={updateSatellite}
-        onOpenInfo={(sat) => setSelectedSatId(sat.id)} 
-        onSelectAll={handleSelectAll}
-        onClearAll={handleClearAll}
-      />
-
+    <Box sx={{ display: "flex", flexDirection: "column", height: "100vh", overflow: "hidden" }}>
       <Box sx={{ flexGrow: 1, position: "relative", overflow: "hidden", display: "flex", flexDirection: "column" }}>
         
-        {/* 3D Map Container */}
+        {/* 3D Map Container (Edge-to-edge full viewport) */}
         <Box sx={{ flexGrow: 1, position: "relative", overflow: "hidden" }}>
           <CesiumWrapper 
             satellites={satellites}
-            hiddenSatellites={[]} // We don't need hiddenSatellites anymore, as unselected ones just won't be fetched
+            hiddenSatellites={[]}
             simulationSpeed={simulationSpeed}
             isPlaying={isPlaying}
             showOrbits={showOrbits}
@@ -93,9 +75,14 @@ export default function Home() {
             baseMapMode={baseMapMode}
           />
 
-          {/* Floating Mission Control Menu */}
+          {/* Floating Mission Control Menu with Attached Satellite Panel */}
           <ControlMenu
-            onToggleSidebar={() => setDrawerOpen((prev) => !prev)}
+            availableNames={availableNames}
+            selectedNames={selectedNames}
+            onToggleName={handleToggleName}
+            onOpenInfo={(sat) => setSelectedSatId(sat.id)}
+            onSelectAll={handleSelectAll}
+            onClearAll={handleClearAll}
             satellites={satellites}
             selectedSat={selectedSatInfo}
             onUpdateSatellite={updateSatellite}

@@ -18,7 +18,7 @@
  *       9. About       – System specifications & mission telemetry info
  */
 
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import {
   Box,
   Typography,
@@ -26,13 +26,13 @@ import {
   Switch,
   Slider,
   Tooltip,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
   Button,
   Chip,
   Divider,
+  Checkbox,
+  Collapse,
+  InputBase,
+  FormControlLabel,
 } from "@mui/material";
 import KeyboardArrowUpIcon from "@mui/icons-material/KeyboardArrowUp";
 import KeyboardArrowDownIcon from "@mui/icons-material/KeyboardArrowDown";
@@ -45,6 +45,10 @@ import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
 import CloseIcon from "@mui/icons-material/Close";
 import PlayArrowIcon from "@mui/icons-material/PlayArrow";
 import PauseIcon from "@mui/icons-material/Pause";
+import SearchIcon from "@mui/icons-material/Search";
+import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
+import ExpandLessIcon from "@mui/icons-material/ExpandLess";
+import InfoIcon from "@mui/icons-material/Info";
 import * as Cesium from "cesium";
 import type { SatelliteData } from "@/lib/types";
 
@@ -110,6 +114,13 @@ type ActiveSubMenu =
 
 interface ControlMenuProps {
   onToggleSidebar?: () => void;
+  // Satellites Panel Management
+  availableNames?: string[];
+  selectedNames?: string[];
+  onToggleName?: (name: string) => void;
+  onOpenInfo?: (sat: SatelliteData) => void;
+  onSelectAll?: () => void;
+  onClearAll?: () => void;
   satellites?: SatelliteData[];
   selectedSat?: SatelliteData | null;
   onUpdateSatellite?: (id: string, updated: Partial<SatelliteData>) => void;
@@ -149,6 +160,12 @@ const BOOKMARKS = [
 
 export default function ControlMenu({
   onToggleSidebar,
+  availableNames = [],
+  selectedNames = [],
+  onToggleName,
+  onOpenInfo,
+  onSelectAll,
+  onClearAll,
   satellites = [],
   selectedSat,
   onUpdateSatellite,
@@ -165,6 +182,18 @@ export default function ControlMenu({
 }: ControlMenuProps) {
   const [isExpanded, setIsExpanded] = useState<boolean>(true);
   const [activeSubMenu, setActiveSubMenu] = useState<ActiveSubMenu>(null);
+  const [satelliteSearch, setSatelliteSearch] = useState<string>("");
+  const [expandedSats, setExpandedSats] = useState<Record<string, boolean>>({});
+
+  const toggleSatExpand = (id: string) => {
+    setExpandedSats((prev) => ({ ...prev, [id]: !prev[id] }));
+  };
+
+  const filteredNames = useMemo(() => {
+    if (!satelliteSearch.trim()) return availableNames;
+    const q = satelliteSearch.toLowerCase();
+    return availableNames.filter((n) => n.toLowerCase().includes(q));
+  }, [availableNames, satelliteSearch]);
 
   // Globe & Sky environment visual states
   const [enableLighting, setEnableLighting] = useState<boolean>(false);
@@ -231,11 +260,6 @@ export default function ControlMenu({
   };
 
   const handleMenuItemClick = (id: ActiveSubMenu) => {
-    if (id === "satellites") {
-      onToggleSidebar?.();
-      setActiveSubMenu(null);
-      return;
-    }
     setActiveSubMenu((prev) => (prev === id ? null : id));
   };
 
@@ -374,14 +398,14 @@ export default function ControlMenu({
       </Box>
 
       {/* ── Contextual Floating Flyout Panel (Positioned next to Menu) ──────── */}
-      {isExpanded && activeSubMenu && activeSubMenu !== "satellites" && (
+      {isExpanded && activeSubMenu && (
         <Box
           sx={{
             position: "absolute",
             top: 16,
             left: 224,
             zIndex: 1060,
-            width: 320,
+            width: activeSubMenu === "satellites" ? 360 : 320,
             maxHeight: "calc(100vh - 120px)",
             bgcolor: "rgba(18, 19, 24, 0.94)",
             backdropFilter: "blur(20px)",
@@ -451,6 +475,262 @@ export default function ControlMenu({
                     </Typography>
                   </Box>
                 ))}
+              </Box>
+            )}
+
+            {/* ── 2. Satellites Management Attached Panel ────────────────── */}
+            {activeSubMenu === "satellites" && (
+              <Box sx={{ display: "flex", flexDirection: "column", gap: 1.25 }}>
+                {/* Search / Filter Input */}
+                <Box
+                  sx={{
+                    display: "flex",
+                    alignItems: "center",
+                    bgcolor: "rgba(255, 255, 255, 0.05)",
+                    borderRadius: "8px",
+                    px: 1.25,
+                    py: 0.5,
+                    border: "1px solid rgba(255, 255, 255, 0.08)",
+                  }}
+                >
+                  <SearchIcon sx={{ fontSize: 18, color: "#94a3b8", mr: 1 }} />
+                  <InputBase
+                    placeholder="Search satellites..."
+                    value={satelliteSearch}
+                    onChange={(e) => setSatelliteSearch(e.target.value)}
+                    sx={{ fontSize: "0.82rem", color: "#f8fafc", width: "100%" }}
+                  />
+                  {satelliteSearch && (
+                    <IconButton size="small" onClick={() => setSatelliteSearch("")} sx={{ p: 0.25, color: "#94a3b8" }}>
+                      <CloseIcon sx={{ fontSize: 14 }} />
+                    </IconButton>
+                  )}
+                </Box>
+
+                {/* Batch Actions & Summary */}
+                <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 1 }}>
+                  <Typography variant="caption" sx={{ color: "#94a3b8" }}>
+                    {selectedNames.length} / {availableNames.length} Tracked
+                  </Typography>
+                  <Box sx={{ display: "flex", gap: 0.75 }}>
+                    <Button
+                      size="small"
+                      variant="outlined"
+                      onClick={onSelectAll}
+                      sx={{
+                        fontSize: "0.7rem",
+                        py: 0.25,
+                        px: 1,
+                        minWidth: 0,
+                        borderColor: "rgba(56, 189, 248, 0.4)",
+                        color: "#38bdf8",
+                        "&:hover": { bgcolor: "rgba(56, 189, 248, 0.1)" },
+                      }}
+                    >
+                      Select All
+                    </Button>
+                    <Button
+                      size="small"
+                      variant="outlined"
+                      onClick={onClearAll}
+                      sx={{
+                        fontSize: "0.7rem",
+                        py: 0.25,
+                        px: 1,
+                        minWidth: 0,
+                        borderColor: "rgba(245, 158, 11, 0.4)",
+                        color: "#f59e0b",
+                        "&:hover": { bgcolor: "rgba(245, 158, 11, 0.1)" },
+                      }}
+                    >
+                      Clear All
+                    </Button>
+                  </Box>
+                </Box>
+
+                <Divider sx={{ borderColor: "rgba(255, 255, 255, 0.08)", my: 0.25 }} />
+
+                {/* Satellite Items List */}
+                <Box sx={{ display: "flex", flexDirection: "column", gap: 0.75, maxHeight: "calc(100vh - 280px)", overflowY: "auto", pr: 0.5 }}>
+                  {filteredNames.length === 0 ? (
+                    <Typography sx={{ fontSize: "0.78rem", color: "#94a3b8", textAlign: "center", py: 2, fontStyle: "italic" }}>
+                      No satellites match &quot;{satelliteSearch}&quot;
+                    </Typography>
+                  ) : (
+                    filteredNames.map((name) => {
+                      const isSelected = selectedNames.includes(name);
+                      const satData = satellites.find((s) => s.name === name || s.name === name.toUpperCase());
+                      const hasAttachments = Boolean(satData);
+                      const isSatExpanded = satData ? Boolean(expandedSats[satData.id]) : false;
+
+                      return (
+                        <Box
+                          key={name}
+                          sx={{
+                            borderRadius: "8px",
+                            bgcolor: isSelected ? "rgba(56, 189, 248, 0.06)" : "rgba(255, 255, 255, 0.02)",
+                            border: `1px solid ${isSelected ? "rgba(56, 189, 248, 0.25)" : "rgba(255, 255, 255, 0.05)"}`,
+                            overflow: "hidden",
+                            transition: "all 0.15s ease",
+                          }}
+                        >
+                          <Box sx={{ display: "flex", alignItems: "center", px: 1, py: 0.75 }}>
+                            <Checkbox
+                              size="small"
+                              checked={isSelected}
+                              onChange={() => onToggleName?.(name)}
+                              sx={{
+                                p: 0.5,
+                                mr: 0.75,
+                                color: "rgba(255, 255, 255, 0.3)",
+                                "&.Mui-checked": { color: "#38bdf8" },
+                              }}
+                            />
+
+                            <Box
+                              sx={{
+                                width: 8,
+                                height: 8,
+                                borderRadius: "50%",
+                                bgcolor: satData ? "#38bdf8" : "#64748b",
+                                mr: 1.25,
+                                boxShadow: satData ? "0 0 6px #38bdf8" : "none",
+                              }}
+                            />
+
+                            <Box sx={{ flex: 1, minWidth: 0 }}>
+                              <Typography sx={{ fontSize: "0.82rem", fontWeight: 600, color: "#f1f5f9", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                                {name}
+                              </Typography>
+                              <Typography sx={{ fontSize: "0.68rem", color: "#94a3b8" }}>
+                                {satData ? satData.type : "Not Loaded"}
+                              </Typography>
+                            </Box>
+
+                            {satData && (
+                              <Box sx={{ display: "flex", alignItems: "center" }}>
+                                <IconButton
+                                  size="small"
+                                  onClick={() => onOpenInfo?.(satData)}
+                                  sx={{ color: "#94a3b8", p: 0.5, "&:hover": { color: "#38bdf8" } }}
+                                  title="View Telemetry & Info"
+                                >
+                                  <InfoIcon sx={{ fontSize: 16 }} />
+                                </IconButton>
+                                {hasAttachments && (
+                                  <IconButton
+                                    size="small"
+                                    onClick={() => toggleSatExpand(satData.id)}
+                                    sx={{ color: "#94a3b8", p: 0.5, "&:hover": { color: "#f8fafc" } }}
+                                    title="Expand Tracks & Attachments"
+                                  >
+                                    {isSatExpanded ? <ExpandLessIcon sx={{ fontSize: 18 }} /> : <ExpandMoreIcon sx={{ fontSize: 18 }} />}
+                                  </IconButton>
+                                )}
+                              </Box>
+                            )}
+                          </Box>
+
+                          {/* Expanded Tracks & Attachments Controls */}
+                          {hasAttachments && (
+                            <Collapse in={isSatExpanded} timeout="auto" unmountOnExit>
+                              <Box
+                                sx={{
+                                  pl: 4,
+                                  pr: 1.5,
+                                  py: 1,
+                                  bgcolor: "rgba(0, 0, 0, 0.25)",
+                                  borderTop: "1px solid rgba(255, 255, 255, 0.05)",
+                                  display: "flex",
+                                  flexDirection: "column",
+                                  gap: 0.75,
+                                }}
+                              >
+                                {/* Tracks Header */}
+                                <Typography sx={{ fontSize: "0.65rem", fontWeight: 700, color: "#94a3b8", letterSpacing: 0.6, textTransform: "uppercase" }}>
+                                  Tracks
+                                </Typography>
+
+                                <ControlToggleRow
+                                  label="Ground Track"
+                                  checked={Boolean(satData!.showGroundTrack)}
+                                  onChange={(v) => onUpdateSatellite?.(satData!.id, { showGroundTrack: v })}
+                                  color="#f59e0b"
+                                />
+
+                                <ControlToggleRow
+                                  label="Swath Track"
+                                  checked={Boolean(satData!.showSwath)}
+                                  onChange={(v) => onUpdateSatellite?.(satData!.id, { showSwath: v })}
+                                  color="#06b6d4"
+                                />
+
+                                <ControlToggleRow
+                                  label="Orbit Path"
+                                  checked={Boolean(satData!.showOrbit)}
+                                  onChange={(v) => onUpdateSatellite?.(satData!.id, { showOrbit: v })}
+                                  color="#38bdf8"
+                                />
+
+                                <Divider sx={{ borderColor: "rgba(255, 255, 255, 0.05)", my: 0.25 }} />
+
+                                {/* Attachments Header */}
+                                <Typography sx={{ fontSize: "0.65rem", fontWeight: 700, color: "#94a3b8", letterSpacing: 0.6, textTransform: "uppercase" }}>
+                                  Attachments
+                                </Typography>
+
+                                {satData!.camera && (
+                                  <ControlToggleRow
+                                    label="Camera (Torch Light)"
+                                    checked={Boolean(satData!.camera.isActive)}
+                                    onChange={(v) =>
+                                      onUpdateSatellite?.(satData!.id, {
+                                        camera: { ...satData!.camera!, isActive: v },
+                                      })
+                                    }
+                                    color="#38bdf8"
+                                  />
+                                )}
+
+                                {satData!.sensor && (
+                                  <ControlToggleRow
+                                    label="Sensor (Scanner Cone)"
+                                    checked={Boolean(satData!.sensor.isActive)}
+                                    onChange={(v) =>
+                                      onUpdateSatellite?.(satData!.id, {
+                                        sensor: { ...satData!.sensor!, isActive: v },
+                                      })
+                                    }
+                                    color="#f97316"
+                                  />
+                                )}
+
+                                {satData!.communication && (
+                                  <ControlToggleRow
+                                    label="Communication"
+                                    checked={Boolean(satData!.communication.isActive)}
+                                    onChange={(v) =>
+                                      onUpdateSatellite?.(satData!.id, {
+                                        communication: { ...satData!.communication!, isActive: v },
+                                      })
+                                    }
+                                    color="#ec4899"
+                                  />
+                                )}
+
+                                {!satData!.camera && !satData!.sensor && !satData!.communication && (
+                                  <Typography sx={{ fontSize: "0.7rem", color: "#64748b", fontStyle: "italic", py: 0.25 }}>
+                                    No attachments installed
+                                  </Typography>
+                                )}
+                              </Box>
+                            </Collapse>
+                          )}
+                        </Box>
+                      );
+                    })
+                  )}
+                </Box>
               </Box>
             )}
 
