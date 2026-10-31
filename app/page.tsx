@@ -4,7 +4,6 @@ import React, { useState } from "react";
 import CesiumWrapper from "@/components/CesiumWrapper";
 import { useSatellites } from "@/lib/satellites";
 import { Box } from "@mui/material";
-import FooterControls from "@/components/FooterControls";
 import TimeControlBar from "@/components/TimeControlBar";
 import SatelliteInfoPanel from "@/components/SatelliteInfoPanel";
 import ControlMenu from "@/components/ControlMenu";
@@ -113,19 +112,6 @@ export default function Home() {
           onTogglePlayPause={handleTogglePlayPause}
           simulationSpeed={simulationSpeed}
           onSimulationSpeedChange={handleSimulationSpeedChange}
-        />
-
-        <FooterControls 
-          simulationSpeed={simulationSpeed} 
-          onSimulationSpeedChange={handleSimulationSpeedChange} 
-          isPlaying={isPlaying}
-          onTogglePlayPause={handleTogglePlayPause}
-          showOrbits={showOrbits} 
-          onShowOrbitsChange={setShowOrbits} 
-          showGrid={showGrid}
-          onShowGridChange={setShowGrid}
-          baseMapMode={baseMapMode} 
-          onBaseMapChange={setBaseMapMode} 
         />
       </Box>
     </Box>

@@ -52,7 +52,6 @@ flowchart TD
     subgraph Browser ["Client Runtime (Browser)"]
         subgraph UI ["User Interface Layer (MUI v9)"]
             MENU[ControlMenu Floating Panel]
-            FC[Footer Controls Panel]
             TIME[TimeControlBar HUD]
             INFO[Satellite Info Panel]
         end
@@ -237,13 +236,7 @@ if (typeof window !== "undefined") {
   - **Graphics**: Simulation speed slider, play/pause, and show orbits toggle.
   - **About**: Mission operations telemetry HUD guide.
 
-### 5. `components/FooterControls.tsx` (Mission Control Center)
-- Fixed bottom docked bar (`60px` height) with dark paper background.
-- Left block: Speed icon, smooth slider (0x to 10x), and live readout label.
-- Center block: "Show Orbits" switch with primary accent color.
-- Right block: Segmented `ToggleButtonGroup` to switch between "Earth" and "Grid" basemaps.
-
-### 6. `components/SatelliteInfoPanel.tsx` (Telemetry HUD)
+### 5. `components/SatelliteInfoPanel.tsx` (Telemetry HUD)
 - Floating card anchored at `top: 80px, right: 24px` with elevated box shadow (`boxShadow: 6`).
 - Color-matched title header corresponding to the satellite's signature color.
 - Displays:
@@ -253,7 +246,10 @@ if (typeof window !== "undefined") {
   - **Speed Multiplier**: Velocity modifier factor.
 - Includes a close button to dismiss the overlay.
 
-### 8. `app/Providers.tsx` (Theme & Styling Engine)
+### 6. `components/TimeControlBar.tsx` (Timeline HUD)
+- Fixed bottom chronological telemetry scrubber with UTC timestamp readout, real-time clock syncing, 1x/5x/10x speed multiplier toggles, and frame stepping controls.
+
+### 7. `app/Providers.tsx` (Theme & Styling Engine)
 - Configures MUI `darkTheme`:
   - Default background: `#0a192f` (Deep Navy).
   - Paper background: `#112240` (Slate Navy).
@@ -337,7 +333,6 @@ satellite-cesium/
 │   ├── CesiumViewer.tsx         # Core CesiumJS/Resium 3D WebGL implementation
 │   ├── CesiumWrapper.tsx        # Next.js dynamic client boundary (SSR: false)
 │   ├── ControlMenu.tsx          # Floating Mission Control panel with satellite manager
-│   ├── FooterControls.tsx       # Bottom HUD (speed slider, orbit & map toggles)
 │   ├── SatelliteInfoPanel.tsx   # Floating satellite telemetry HUD card
 │   ├── TimeControlBar.tsx       # Chronological UTC mission clock & timeline scrubber
 │   └── cesium/                  # Modular Cesium 3D layers, math & effect components
