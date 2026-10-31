@@ -24,253 +24,319 @@ body {
   opacity: 1;
 }
 
-/* ── TimeControlBar ─────────────────────────────────────────────────────────
-   Designed for satellite ground operations: information-dense, flat,
-   monospace clocks, minimal chrome. No decorative effects.
-── */
+/* ── Modern Mission Timeline HUD (Orbital Reticle Timebar) ─────────────────── */
 
-.tcb-root {
-  display: flex;
-  align-items: center;
+.tcb-container {
+  position: relative;
   width: 100%;
-  height: 48px;
-  padding: 0 16px;
-  gap: 12px;
-  background: #0b0e18;
-  border-top: 1px solid #1c2133;
+  height: 58px;
+  background: #11151f;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
   user-select: none;
-  font-family: 'Inter', 'Segoe UI', system-ui, sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   box-sizing: border-box;
   flex-shrink: 0;
-  overflow: hidden;
-}
-
-.tcb-sep {
-  width: 1px;
-  height: 20px;
-  background: #1c2133;
-  flex-shrink: 0;
-}
-
-/* ── Transport ────────────────────────────────────────────── */
-.tcb-transport {
-  display: flex;
-  align-items: center;
-  gap: 3px;
-  flex-shrink: 0;
-}
-
-.tcb-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 24px;
-  height: 24px;
-  border-radius: 3px;
-  border: none;
-  background: transparent;
-  color: #3d4f66;
-  cursor: pointer;
-  transition: color 0.1s;
-  padding: 0;
-  outline: none;
-}
-.tcb-btn:hover  { color: #7a90a8; }
-.tcb-btn:active { color: #c5d0dc; }
-
-/* Play/Pause — border signals state, no gradient, no glow */
-.tcb-play {
-  position: relative;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 28px;
-  height: 28px;
-  border-radius: 50%;
-  border: 1px solid #232d42;
-  background: #141a28;
-  cursor: pointer;
-  outline: none;
-  margin: 0 4px;
   overflow: visible;
-  flex-shrink: 0;
-  transition: border-color 0.15s, background 0.15s;
+  z-index: 20;
 }
-.tcb-play:hover                { border-color: #38bdf8; }
-.tcb-play[data-playing="true"] { background: #0e1f33; border-color: #38bdf8; }
 
-/*
-  Live indicator: a 5 px dot that breathes, not an expanding ring.
-  Confirms the simulation is running without demanding attention.
-*/
-.tcb-pulse {
+/* Raised Center Tab */
+.tcb-tab {
   position: absolute;
-  top: -2px;
-  right: -2px;
-  width: 5px;
-  height: 5px;
-  border-radius: 50%;
-  background: #38bdf8;
-  border: 1px solid #0b0e18;
-  animation: tcbLive 2.2s ease-in-out infinite;
+  top: -46px;
+  left: 50%;
+  transform: translateX(-50%);
+  height: 46px;
+  padding: 0 16px;
+  background: #11151f;
+  border-top: 1px solid rgba(255, 255, 255, 0.09);
+  border-left: 1px solid rgba(255, 255, 255, 0.09);
+  border-right: 1px solid rgba(255, 255, 255, 0.09);
+  border-top-left-radius: 14px;
+  border-top-right-radius: 14px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.4);
+  z-index: 25;
+}
+
+/* Inverted rounded corner fillets to seamlessly blend tab with the horizontal bar */
+.tcb-tab::before {
+  content: "";
+  position: absolute;
+  bottom: -1px;
+  left: -14px;
+  width: 14px;
+  height: 14px;
+  background: transparent;
+  border-bottom-right-radius: 14px;
+  box-shadow: 5px 5px 0 5px #11151f;
   pointer-events: none;
 }
 
-@keyframes tcbLive {
-  0%, 100% { opacity: 1; }
-  50%       { opacity: 0.25; }
+.tcb-tab::after {
+  content: "";
+  position: absolute;
+  bottom: -1px;
+  right: -14px;
+  width: 14px;
+  height: 14px;
+  background: transparent;
+  border-bottom-left-radius: 14px;
+  box-shadow: -5px 5px 0 5px #11151f;
+  pointer-events: none;
 }
 
-/* ── Scrubber ─────────────────────────────────────────────── */
-.tcb-scrubber {
-  flex: 1;
-  min-width: 0;
+/* White Circular Play/Pause Button */
+.tcb-play-btn {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: #ffffff;
+  color: #0f172a;
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+  transition: transform 0.15s ease, background 0.15s ease;
+  flex-shrink: 0;
+  outline: none;
+  padding: 0;
+}
+.tcb-play-btn:hover {
+  transform: scale(1.06);
+  background: #f8fafc;
+}
+.tcb-play-btn:active {
+  transform: scale(0.96);
+}
+
+/* Time & Date Display in Tab */
+.tcb-display {
   display: flex;
   flex-direction: column;
-  gap: 2px;
-}
-
-.tcb-labels {
-  position: relative;
-  height: 11px;
-  display: flex;
-  align-items: flex-end;
-}
-
-.tcb-endlabel {
-  font-size: 0.56rem;
-  color: #334155;
-  font-family: 'Courier New', monospace;
-  line-height: 1;
-}
-.tcb-endlabel--right {
-  position: absolute;
-  right: 0;
-}
-
-.tcb-ticklabel {
-  position: absolute;
-  transform: translateX(-50%);
-  font-size: 0.55rem;
-  color: #3d5068;
-  font-family: 'Courier New', monospace;
-  line-height: 1;
-  white-space: nowrap;
-}
-
-.tcb-track {
-  position: relative;
-  height: 16px;
-  display: flex;
-  align-items: center;
-}
-
-.tcb-rail {
-  position: absolute;
-  left: 0;
-  right: 0;
-  height: 2px;
-  background: #1a2030;
-  border-radius: 1px;
-}
-
-/* Tick marks: very faint orientation aid */
-.tcb-tick {
-  position: absolute;
-  width: 1px;
-  background: #1e2840;
-  bottom: 50%;
-  transform: translate(-50%, 50%);
-}
-
-/* Solid fill — no gradient, no glow */
-.tcb-fill {
-  position: absolute;
-  left: 0;
-  height: 2px;
-  background: #38bdf8;
-  border-radius: 1px;
-  pointer-events: none;
-}
-
-/* Thumb: simple dot. The border matches the root background,
-   creating a visual "ring" without a separate element. */
-.tcb-thumb {
-  position: absolute;
-  top: 50%;
-  transform: translate(-50%, -50%);
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  background: #38bdf8;
-  border: 2px solid #0b0e18;
-  z-index: 2;
-  pointer-events: none;
-}
-
-/* ── Speed ────────────────────────────────────────────────── */
-.tcb-speed {
-  display: flex;
-  align-items: center;
-  gap: 3px;
-  flex-shrink: 0;
-}
-
-.tcb-speed-label {
-  font-size: 0.55rem;
-  font-weight: 700;
-  letter-spacing: 1.4px;
-  color: #2d3f55;
-  text-transform: uppercase;
-  margin-right: 3px;
-}
-
-.tcb-preset {
-  display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-width: 26px;
-  height: 20px;
-  padding: 0 4px;
-  border-radius: 2px;
-  border: none;
-  background: transparent;
-  color: #3d4f66;
-  font-size: 0.6rem;
-  font-family: 'Inter', sans-serif;
-  font-weight: 500;
-  cursor: pointer;
-  transition: color 0.1s, background 0.1s;
-  outline: none;
+  line-height: 1.15;
+  cursor: default;
 }
-.tcb-preset:hover               { color: #7a90a8; background: #141a28; }
-/* Active: background-color only — no gradient, no shadow */
-.tcb-preset[data-active="true"] { background: #112030; color: #38bdf8; font-weight: 600; }
 
-/* ── Clocks ───────────────────────────────────────────────── */
-.tcb-clocks {
+.tcb-time-row {
   display: flex;
   align-items: center;
-  gap: 5px;
+  position: relative;
+}
+
+.tcb-time-text {
+  font-family: ui-monospace, "SF Mono", Menlo, Monaco, Consolas, monospace;
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: #f8fafc;
+  letter-spacing: -0.01em;
+}
+
+/* Green live status dot */
+.tcb-status-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #22c55e;
+  box-shadow: 0 0 8px #22c55e;
+  position: absolute;
+  top: 1px;
+  right: -11px;
+  transition: background 0.2s, box-shadow 0.2s;
+}
+
+.tcb-status-dot[data-playing="true"] {
+  animation: tcbPulse 2s infinite ease-in-out;
+}
+
+@keyframes tcbPulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.35; transform: scale(0.85); }
+}
+
+.tcb-date-text {
+  font-size: 0.69rem;
+  font-weight: 500;
+  color: #94a3b8;
+  margin-top: 1px;
+  letter-spacing: 0.01em;
+}
+
+/* Speedometer circular button */
+.tcb-speed-btn {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.07);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: #cbd5e1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.15s ease;
   flex-shrink: 0;
+  outline: none;
+  padding: 0;
+}
+.tcb-speed-btn:hover {
+  background: rgba(255, 255, 255, 0.14);
+  color: #ffffff;
+  border-color: rgba(255, 255, 255, 0.22);
+}
+.tcb-speed-btn[data-active="true"] {
+  border-color: #38bdf8;
+  color: #38bdf8;
+  background: rgba(56, 189, 248, 0.12);
 }
 
-/* Primary readout: mission elapsed time — most operationally relevant */
-.tcb-elapsed {
-  font-family: 'Courier New', monospace;
+/* Speed popover menu */
+.tcb-speed-popover {
+  position: absolute;
+  bottom: 54px;
+  right: -10px;
+  background: #151a26;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 10px;
+  padding: 10px 12px;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.55);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 210px;
+  z-index: 50;
+  backdrop-filter: blur(12px);
+}
+
+.tcb-popover-title {
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: #38bdf8;
+  text-transform: uppercase;
+}
+
+.tcb-presets-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.tcb-preset-btn {
+  padding: 3px 7px;
+  border-radius: 4px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.04);
+  color: #94a3b8;
   font-size: 0.72rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.12s ease;
+  outline: none;
+}
+.tcb-preset-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #f8fafc;
+}
+.tcb-preset-btn[data-selected="true"] {
+  background: rgba(56, 189, 248, 0.2);
+  border-color: #38bdf8;
+  color: #38bdf8;
   font-weight: 600;
-  color: #d1dce8;
-  letter-spacing: 0.03em;
-  white-space: nowrap;
 }
 
-.tcb-dot { color: #1c2133; font-size: 0.65rem; }
+.tcb-popover-actions {
+  display: flex;
+  gap: 6px;
+  margin-top: 2px;
+}
 
-/* UTC: secondary, dimmer */
-.tcb-utc {
-  font-family: 'Courier New', monospace;
-  font-size: 0.67rem;
-  color: #3d4f66;
-  white-space: nowrap;
+.tcb-action-btn {
+  flex: 1;
+  padding: 4px 6px;
+  border-radius: 4px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.04);
+  color: #cbd5e1;
+  font-size: 0.68rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.12s ease;
+  outline: none;
+  text-align: center;
+}
+.tcb-action-btn:hover {
+  background: rgba(56, 189, 248, 0.12);
+  border-color: rgba(56, 189, 248, 0.3);
+  color: #38bdf8;
+}
+
+/* Ruler track area */
+.tcb-ruler {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  cursor: grab;
+}
+.tcb-ruler:active {
+  cursor: grabbing;
+}
+
+/* Centered Amber Needle */
+.tcb-needle {
+  position: absolute;
+  left: 50%;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: #fbbf24;
+  transform: translateX(-50%);
+  box-shadow: 0 0 10px rgba(251, 191, 36, 0.75);
+  z-index: 10;
+  pointer-events: none;
+}
+
+/* Tick items positioned along ruler */
+.tcb-tick-item {
+  position: absolute;
+  bottom: 8px;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  pointer-events: none;
+}
+
+.tcb-tick-label {
+  font-size: 0.68rem;
+  font-weight: 500;
+  color: #94a3b8;
+  margin-bottom: 6px;
+  line-height: 1;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  letter-spacing: -0.01em;
+}
+
+.tcb-tick-line {
+  width: 1px;
+}
+.tcb-tick-line--major {
+  height: 14px;
+  background: #64748b;
+  width: 1.5px;
+}
+.tcb-tick-line--mid {
+  height: 9px;
+  background: #475569;
+}
+.tcb-tick-line--minor {
+  height: 5px;
+  background: #334155;
 }

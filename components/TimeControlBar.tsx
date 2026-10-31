@@ -1,24 +1,27 @@
 "use client";
 
 /**
- * TimeControlBar.tsx — Compact single-strip mission timeline.
+ * TimeControlBar.tsx
+ * Orbital Reticle Timebar HUD inspired by professional flight and space mission dashboards.
  *
- * Layout (one row, ~52px tall):
- *   [⏮ ◀ −15m  ▶/⏸  +15m ▶ ⏭]  [scrubber]  [0.5× 1× 2× 5× 10× 60× 1K×]  [T+HH:MM:SS · UTC time]
- *
- * Everything lives on one line — no vertical stacking.
+ * Features:
+ *   - Protruding top tab with:
+ *       1. Solid white circular Play/Pause button
+ *       2. Large UTC time readout (HH:MM:SS) with pulsing green live dot and UTC date
+ *       3. Speedometer button with floating speed preset popover (0.5× – 1000×, jump to live)
+ *   - Centered amber reticle needle (#fbbf24) with glowing vertical line
+ *   - Continuous scrolling tape ruler with 10-minute minor ticks, 30-minute mid ticks,
+ *     and labeled hour major ticks (10:00, 11:00, 12:00, etc.)
+ *   - Smooth drag-scrubbing, click-to-seek, and wheel scrubbing
  */
 
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { animClock } from "./cesium/animClock";
 
-// ─── Constants ────────────────────────────────────────────────────────────────
-const WINDOW_SEC = 24 * 3600; // 24-hour window
-
+const PX_PER_HOUR = 220; // Visual density of hours along ruler
+const PX_PER_SEC = PX_PER_HOUR / 3600;
 const SPEED_PRESETS = [0.5, 1, 2, 5, 10, 60, 1000] as const;
-type SpeedPreset = (typeof SPEED_PRESETS)[number];
 
-// ─── Types ────────────────────────────────────────────────────────────────────
 interface Props {
   isPlaying: boolean;
   onTogglePlayPause: () => void;
@@ -26,231 +29,346 @@ interface Props {
   onSimulationSpeedChange: (s: number) => void;
 }
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-function fmtElapsed(sec: number): string {
-  const a = Math.abs(Math.round(sec));
-  const h = Math.floor(a / 3600);
-  const m = Math.floor((a % 3600) / 60);
-  const s = a % 60;
-  return `T+${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
+function formatUtc(epoch: number, elapsedSec: number) {
+  const d = new Date(epoch + elapsedSec * 1000);
+  const hh = String(d.getUTCHours()).padStart(2, "0");
+  const mm = String(d.getUTCMinutes()).padStart(2, "0");
+  const ss = String(d.getUTCSeconds()).padStart(2, "0");
+
+  const days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+  const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  const dayName = days[d.getUTCDay()];
+  const dayNum = d.getUTCDate();
+  const monthName = months[d.getUTCMonth()];
+
+  return {
+    timeStr: `${hh}:${mm}:${ss}`,
+    dateStr: `${dayName} ${dayNum} ${monthName} UTC`,
+  };
 }
 
-function fmtUtc(epoch: number, sec: number): string {
-  return new Date(epoch + sec * 1000).toISOString().replace("T", " ").slice(0, 19) + " UTC";
-}
-
-function fmtLabel(sec: number): string {
-  const h = Math.floor(sec / 3600);
-  return `${h}h`;
-}
-
-// ─── Component ────────────────────────────────────────────────────────────────
 export default function TimeControlBar({
   isPlaying,
   onTogglePlayPause,
   simulationSpeed,
   onSimulationSpeedChange,
 }: Props) {
-  const [epoch, setEpoch] = useState(() => Date.now());
-  const [disp, setDisp] = useState(0);
-  const [dragging, setDragging] = useState(false);
-  const trackRef = useRef<HTMLDivElement>(null);
-  const draggingRef = useRef(false);
+  // Epoch anchor (synced on client mount)
+  const [epoch, setEpoch] = useState<number>(0);
+  const [disp, setDisp] = useState<number>(0);
+  const [showSpeedMenu, setShowSpeedMenu] = useState<boolean>(false);
+  const [rulerWidth, setRulerWidth] = useState<number>(1200);
 
-  // Sync epoch and clock on client mount
+  const rulerRef = useRef<HTMLDivElement>(null);
+  const popoverRef = useRef<HTMLDivElement>(null);
+  const draggingRef = useRef<boolean>(false);
+  const dragStartXRef = useRef<number>(0);
+  const dragStartDispRef = useRef<number>(0);
+
+  // Sync epoch on mount to eliminate SSR hydration discrepancy
   useEffect(() => {
     setEpoch(Date.now());
   }, []);
 
-  // Sync display from clock at 80 ms
+  // Update ruler width on mount & window resize
+  useEffect(() => {
+    if (!rulerRef.current) return;
+    const measure = () => {
+      if (rulerRef.current) {
+        setRulerWidth(rulerRef.current.clientWidth);
+      }
+    };
+    measure();
+    window.addEventListener("resize", measure);
+    return () => window.removeEventListener("resize", measure);
+  }, []);
+
+  // Close speed popover when clicking outside
+  useEffect(() => {
+    const handleOutsideClick = (e: MouseEvent) => {
+      if (popoverRef.current && !popoverRef.current.contains(e.target as Node)) {
+        setShowSpeedMenu(false);
+      }
+    };
+    if (showSpeedMenu) {
+      window.addEventListener("mousedown", handleOutsideClick);
+    }
+    return () => window.removeEventListener("mousedown", handleOutsideClick);
+  }, [showSpeedMenu]);
+
+  // Sync display from animClock every 50 ms when not user-dragging
   useEffect(() => {
     const id = setInterval(() => {
-      if (!draggingRef.current) setDisp(animClock.elapsedTime);
-    }, 80);
+      if (!draggingRef.current) {
+        setDisp(animClock.elapsedTime);
+      }
+    }, 50);
     return () => clearInterval(id);
   }, []);
 
-  const clamped = Math.min(Math.max(disp, 0), WINDOW_SEC);
-  const pct = (clamped / WINDOW_SEC) * 100;
-
-  // ── Scrubbing ──────────────────────────────────────────────────────────────
-  const scrubTo = useCallback((cx: number) => {
-    if (!trackRef.current) return;
-    const r = trackRef.current.getBoundingClientRect();
-    const t = Math.min(Math.max((cx - r.left) / r.width, 0), 1) * WINDOW_SEC;
-    animClock.elapsedTime = t;
-    setDisp(t);
+  // ── Drag & Scrub Interactions ─────────────────────────────────────────────
+  const handleMouseDown = useCallback((e: React.MouseEvent) => {
+    draggingRef.current = true;
+    dragStartXRef.current = e.clientX;
+    dragStartDispRef.current = animClock.elapsedTime;
   }, []);
 
-  const onMouseDown = useCallback(
-    (e: React.MouseEvent) => { draggingRef.current = true; setDragging(true); scrubTo(e.clientX); },
-    [scrubTo]
-  );
+  const handleTouchStart = useCallback((e: React.TouchEvent) => {
+    if (e.touches.length === 0) return;
+    draggingRef.current = true;
+    dragStartXRef.current = e.touches[0].clientX;
+    dragStartDispRef.current = animClock.elapsedTime;
+  }, []);
 
   useEffect(() => {
-    const mv = (e: MouseEvent) => { if (draggingRef.current) scrubTo(e.clientX); };
-    const up = () => { draggingRef.current = false; setDragging(false); };
-    window.addEventListener("mousemove", mv);
-    window.addEventListener("mouseup", up);
-    return () => { window.removeEventListener("mousemove", mv); window.removeEventListener("mouseup", up); };
-  }, [scrubTo]);
+    const onMouseMove = (e: MouseEvent) => {
+      if (!draggingRef.current) return;
+      const deltaX = e.clientX - dragStartXRef.current;
+      const deltaSec = -deltaX / PX_PER_SEC;
+      const nextSec = Math.max(0, dragStartDispRef.current + deltaSec);
+      animClock.elapsedTime = nextSec;
+      setDisp(nextSec);
+    };
 
-  const onTouchStart = useCallback(
-    (e: React.TouchEvent) => { draggingRef.current = true; setDragging(true); scrubTo(e.touches[0].clientX); },
-    [scrubTo]
-  );
-  useEffect(() => {
-    const mv = (e: TouchEvent) => { if (draggingRef.current) scrubTo(e.touches[0].clientX); };
-    const up = () => { draggingRef.current = false; setDragging(false); };
-    window.addEventListener("touchmove", mv);
-    window.addEventListener("touchend", up);
-    return () => { window.removeEventListener("touchmove", mv); window.removeEventListener("touchend", up); };
-  }, [scrubTo]);
+    const onTouchMove = (e: TouchEvent) => {
+      if (!draggingRef.current || e.touches.length === 0) return;
+      const deltaX = e.touches[0].clientX - dragStartXRef.current;
+      const deltaSec = -deltaX / PX_PER_SEC;
+      const nextSec = Math.max(0, dragStartDispRef.current + deltaSec);
+      animClock.elapsedTime = nextSec;
+      setDisp(nextSec);
+    };
 
-  // ── Step ──────────────────────────────────────────────────────────────────
-  const step = (d: number) => {
-    const t = Math.min(Math.max(animClock.elapsedTime + d, 0), WINDOW_SEC);
-    animClock.elapsedTime = t;
-    setDisp(t);
+    const onEnd = () => {
+      draggingRef.current = false;
+    };
+
+    window.addEventListener("mousemove", onMouseMove);
+    window.addEventListener("mouseup", onEnd);
+    window.addEventListener("touchmove", onTouchMove);
+    window.addEventListener("touchend", onEnd);
+
+    return () => {
+      window.removeEventListener("mousemove", onMouseMove);
+      window.removeEventListener("mouseup", onEnd);
+      window.removeEventListener("touchmove", onTouchMove);
+      window.removeEventListener("touchend", onEnd);
+    };
+  }, []);
+
+  // Click to seek directly
+  const handleRulerClick = useCallback((e: React.MouseEvent) => {
+    // Only seek if was a direct click (not an extensive drag)
+    if (Math.abs(e.clientX - dragStartXRef.current) > 3) return;
+    if (!rulerRef.current) return;
+    const rect = rulerRef.current.getBoundingClientRect();
+    const clickX = e.clientX - rect.left;
+    const deltaXFromCenter = clickX - rect.width / 2;
+    const deltaSec = deltaXFromCenter / PX_PER_SEC;
+    const nextSec = Math.max(0, animClock.elapsedTime + deltaSec);
+    animClock.elapsedTime = nextSec;
+    setDisp(nextSec);
+  }, []);
+
+  // Wheel scrubbing
+  const handleWheel = useCallback((e: React.WheelEvent) => {
+    const delta = e.deltaX !== 0 ? e.deltaX : e.deltaY;
+    const deltaSec = delta * 1.5;
+    const nextSec = Math.max(0, animClock.elapsedTime + deltaSec);
+    animClock.elapsedTime = nextSec;
+    setDisp(nextSec);
+  }, []);
+
+  // Step helper
+  const handleStep = (seconds: number) => {
+    const nextSec = Math.max(0, animClock.elapsedTime + seconds);
+    animClock.elapsedTime = nextSec;
+    setDisp(nextSec);
   };
 
-  // ── Tick marks: every 4 h major, every 1 h minor ─────────────────────────
-  const ticks = Array.from({ length: 25 }, (_, i) => i * 3600);
-  // Only show labels every 4 h to avoid clutter
-  const labelTicks = ticks.filter((s) => s % (4 * 3600) === 0 && s > 0 && s < WINDOW_SEC);
+  const handleJumpToLive = () => {
+    animClock.elapsedTime = 0;
+    setEpoch(Date.now());
+    setDisp(0);
+    setShowSpeedMenu(false);
+  };
+
+  // ── Ruler Geometry Calculation ────────────────────────────────────────────
+  const currentTotalSec = (epoch ? epoch / 1000 : 0) + disp;
+  const halfWidth = rulerWidth / 2;
+  const visibleSecSpan = halfWidth / PX_PER_SEC + 3600; // Buffer 1 hr each side
+  const startSec = Math.floor((currentTotalSec - visibleSecSpan) / 600) * 600;
+  const endSec = Math.ceil((currentTotalSec + visibleSecSpan) / 600) * 600;
+
+  const ticks: Array<{
+    sec: number;
+    left: number;
+    type: "major" | "mid" | "minor";
+    label?: string;
+  }> = [];
+
+  for (let s = startSec; s <= endSec; s += 600) {
+    const left = halfWidth + (s - currentTotalSec) * PX_PER_SEC;
+    const isHour = s % 3600 === 0;
+    const isHalfHour = s % 1800 === 0 && !isHour;
+
+    if (isHour) {
+      const d = new Date(s * 1000);
+      const hh = String(d.getUTCHours()).padStart(2, "0");
+      ticks.push({
+        sec: s,
+        left,
+        type: "major",
+        label: `${hh}:00`,
+      });
+    } else if (isHalfHour) {
+      ticks.push({
+        sec: s,
+        left,
+        type: "mid",
+      });
+    } else {
+      ticks.push({
+        sec: s,
+        left,
+        type: "minor",
+      });
+    }
+  }
+
+  const { timeStr, dateStr } = formatUtc(epoch, disp);
 
   return (
-    <div className="tcb-root">
-      {/* ── Transport ──────────────────────────────────────────────────────── */}
-      <div className="tcb-transport">
-        {/* Jump to start */}
-        <button className="tcb-btn" onClick={() => { animClock.elapsedTime = 0; setDisp(0); }} title="Jump to T+0">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M6 6h2v12H6zm3.5 6 8.5 6V6z"/></svg>
-        </button>
-
-        {/* −15 min */}
-        <button className="tcb-btn" onClick={() => step(-900)} title="−15 min">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M11 18V6l-8.5 6 8.5 6zm.5-6 8.5 6V6l-8.5 6z"/></svg>
-        </button>
-
-        {/* Play / Pause */}
+    <div className="tcb-container">
+      {/* ── Raised Center Tab ──────────────────────────────────────────────── */}
+      <div className="tcb-tab">
+        {/* 1. White Circular Play/Pause Button */}
         <button
-          className="tcb-play"
+          className="tcb-play-btn"
           onClick={onTogglePlayPause}
-          title={isPlaying ? "Pause" : "Play"}
-          data-playing={isPlaying}
+          title={isPlaying ? "Pause simulation" : "Play simulation"}
+          aria-label={isPlaying ? "pause simulation" : "play simulation"}
         >
-          {isPlaying && <span className="tcb-pulse" />}
-        {isPlaying ? (
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" style={{ color: '#38bdf8' }}><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
+          {isPlaying ? (
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z" />
+            </svg>
           ) : (
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" style={{ color: '#7a90a8' }}><path d="M8 5v14l11-7z"/></svg>
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" style={{ marginLeft: "2px" }}>
+              <path d="M8 5v14l11-7z" />
+            </svg>
           )}
         </button>
 
-        {/* +15 min */}
-        <button className="tcb-btn" onClick={() => step(900)} title="+15 min">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M4 18l8.5-6L4 6v12zm9-12v12l8.5-6L13 6z"/></svg>
-        </button>
-
-        {/* Jump to end */}
-        <button className="tcb-btn" onClick={() => { animClock.elapsedTime = WINDOW_SEC; setDisp(WINDOW_SEC); }} title="Jump to T+24h">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M6 18l8.5-6L6 6v12zm.5-6L15 18V6l-8.5 6zM16 6v12h2V6h-2z"/></svg>
-        </button>
-      </div>
-
-      {/* ── Divider ────────────────────────────────────────────────────────── */}
-      <div className="tcb-sep" />
-
-      {/* ── Scrubber ───────────────────────────────────────────────────────── */}
-      <div className="tcb-scrubber">
-        {/* Labels row above track */}
-        <div className="tcb-labels" aria-hidden="true">
-          <span className="tcb-endlabel">T+0</span>
-          {labelTicks.map((s) => (
-            <span
-              key={s}
-              className="tcb-ticklabel"
-              style={{ left: `${(s / WINDOW_SEC) * 100}%` }}
-            >
-              {fmtLabel(s)}
+        {/* 2. Central Time & Date Display */}
+        <div className="tcb-display" suppressHydrationWarning>
+          <div className="tcb-time-row">
+            <span className="tcb-time-text" suppressHydrationWarning>
+              {timeStr}
             </span>
-          ))}
-          <span className="tcb-endlabel tcb-endlabel--right">T+24h</span>
-        </div>
-
-        {/* Track */}
-        <div
-          ref={trackRef}
-          className="tcb-track"
-          style={{ cursor: dragging ? "grabbing" : "grab" }}
-          onMouseDown={onMouseDown}
-          onTouchStart={onTouchStart}
-          role="slider"
-          aria-label="Mission timeline"
-          aria-valuemin={0}
-          aria-valuemax={WINDOW_SEC}
-          aria-valuenow={clamped}
-        >
-          {/* Rail */}
-          <div className="tcb-rail" />
-
-          {/* Tick marks */}
-          {ticks.map((s) => (
-            <div
-              key={s}
-              className="tcb-tick"
-              style={{
-                left: `${(s / WINDOW_SEC) * 100}%`,
-                height: s % (4 * 3600) === 0 ? 8 : 4,
-                opacity: s % (4 * 3600) === 0 ? 0.45 : 0.18,
-              }}
+            <span
+              className="tcb-status-dot"
+              data-playing={isPlaying}
+              title={isPlaying ? "Live Simulation Active" : "Simulation Paused"}
             />
-          ))}
+          </div>
+          <span className="tcb-date-text" suppressHydrationWarning>
+            {dateStr}
+          </span>
+        </div>
 
-          {/* Fill */}
-          <div className="tcb-fill" style={{ width: `${pct}%` }} />
+        {/* 3. Speedometer Circular Button */}
+        <div style={{ position: "relative" }} ref={popoverRef}>
+          <button
+            className="tcb-speed-btn"
+            onClick={() => setShowSpeedMenu((prev) => !prev)}
+            data-active={showSpeedMenu || simulationSpeed !== 1}
+            title={`Simulation Speed (${simulationSpeed}×)`}
+            aria-label="Simulation speed settings"
+          >
+            {/* Speedometer Gauge SVG */}
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M12 2v2" />
+              <path d="m4.93 4.93 1.41 1.41" />
+              <path d="M20 12h2" />
+              <path d="m19.07 4.93-1.41 1.41" />
+              <path d="M2 12h2" />
+              <path d="M16 12a4 4 0 1 1-8 0 4 4 0 0 1 8 0z" />
+              <path d="m14 14 3-3" />
+            </svg>
+          </button>
 
-          {/* Thumb */}
-          <div
-            className="tcb-thumb"
-            style={{
-              left: `${pct}%`,
-              boxShadow: isPlaying
-                ? "0 0 10px 3px rgba(56,189,248,0.65)"
-                : "0 0 5px 1px rgba(56,189,248,0.35)",
-            }}
-          />
+          {/* Floating Speed & Jump Popover */}
+          {showSpeedMenu && (
+            <div className="tcb-speed-popover">
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <span className="tcb-popover-title">Simulation Speed</span>
+                <span style={{ fontSize: "0.75rem", fontWeight: 700, color: "#38bdf8" }}>
+                  {simulationSpeed}×
+                </span>
+              </div>
+
+              {/* Presets Grid */}
+              <div className="tcb-presets-row">
+                {SPEED_PRESETS.map((spd) => (
+                  <button
+                    key={spd}
+                    className="tcb-preset-btn"
+                    data-selected={simulationSpeed === spd}
+                    onClick={() => {
+                      onSimulationSpeedChange(spd);
+                      setShowSpeedMenu(false);
+                    }}
+                  >
+                    {spd >= 1000 ? "1K" : spd}×
+                  </button>
+                ))}
+              </div>
+
+              {/* Quick Actions */}
+              <div className="tcb-popover-actions">
+                <button className="tcb-action-btn" onClick={() => handleStep(-900)} title="Step backward 15 minutes">
+                  −15m
+                </button>
+                <button className="tcb-action-btn" onClick={handleJumpToLive} title="Sync to live real-time">
+                  Live (Now)
+                </button>
+                <button className="tcb-action-btn" onClick={() => handleStep(900)} title="Step forward 15 minutes">
+                  +15m
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
-      {/* ── Divider ────────────────────────────────────────────────────────── */}
-      <div className="tcb-sep" />
+      {/* ── Reticle Needle (Centered Amber Indicator Line) ─────────────────── */}
+      <div className="tcb-needle" />
 
-      {/* ── Speed presets ──────────────────────────────────────────────────── */}
-      <div className="tcb-speed">
-        <span className="tcb-speed-label">SPEED</span>
-        {SPEED_PRESETS.map((spd) => (
-          <button
-            key={spd}
-            className="tcb-preset"
-            data-active={simulationSpeed === spd}
-            onClick={() => onSimulationSpeedChange(spd)}
-            title={`${spd}× speed`}
+      {/* ── Timeline Ruler & Scrubbing Surface ─────────────────────────────── */}
+      <div
+        ref={rulerRef}
+        className="tcb-ruler"
+        onMouseDown={handleMouseDown}
+        onTouchStart={handleTouchStart}
+        onClick={handleRulerClick}
+        onWheel={handleWheel}
+        title="Drag left/right or scroll to scrub time • Click to seek"
+      >
+        {ticks.map((tick) => (
+          <div
+            key={tick.sec}
+            className="tcb-tick-item"
+            style={{ left: `${tick.left}px` }}
           >
-            {(spd as SpeedPreset) >= 1000 ? "1K" : spd}×
-          </button>
+            {tick.label && (
+              <span className="tcb-tick-label">{tick.label}</span>
+            )}
+            <div
+              className={`tcb-tick-line tcb-tick-line--${tick.type}`}
+            />
+          </div>
         ))}
-      </div>
-
-      {/* ── Divider ────────────────────────────────────────────────────────── */}
-      <div className="tcb-sep" />
-
-      {/* ── Clocks ─────────────────────────────────────────────────────────── */}
-      <div className="tcb-clocks" suppressHydrationWarning>
-        <span className="tcb-elapsed" suppressHydrationWarning>{fmtElapsed(disp)}</span>
-        <span className="tcb-dot">·</span>
-        <span className="tcb-utc" suppressHydrationWarning>{fmtUtc(epoch, disp)}</span>
       </div>
     </div>
   );
