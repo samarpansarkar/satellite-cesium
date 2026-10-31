@@ -25,14 +25,12 @@ import {
   IconButton,
   Switch,
   Slider,
-  Tooltip,
   Button,
   Chip,
   Divider,
   Checkbox,
   Collapse,
   InputBase,
-  FormControlLabel,
 } from "@mui/material";
 import KeyboardArrowUpIcon from "@mui/icons-material/KeyboardArrowUp";
 import KeyboardArrowDownIcon from "@mui/icons-material/KeyboardArrowDown";
@@ -113,7 +111,8 @@ type ActiveSubMenu =
   | null;
 
 interface ControlMenuProps {
-  onToggleSidebar?: () => void;
+  initialSubMenu?: ActiveSubMenu;
+  defaultExpandedSats?: Record<string, boolean>;
   // Satellites Panel Management
   availableNames?: string[];
   selectedNames?: string[];
@@ -159,7 +158,6 @@ const BOOKMARKS = [
 ];
 
 export default function ControlMenu({
-  onToggleSidebar,
   availableNames = [],
   selectedNames = [],
   onToggleName,
@@ -179,11 +177,13 @@ export default function ControlMenu({
   onSimulationSpeedChange,
   isPlaying,
   onTogglePlayPause,
+  initialSubMenu = null,
+  defaultExpandedSats = {},
 }: ControlMenuProps) {
   const [isExpanded, setIsExpanded] = useState<boolean>(true);
-  const [activeSubMenu, setActiveSubMenu] = useState<ActiveSubMenu>(null);
+  const [activeSubMenu, setActiveSubMenu] = useState<ActiveSubMenu>(initialSubMenu);
   const [satelliteSearch, setSatelliteSearch] = useState<string>("");
-  const [expandedSats, setExpandedSats] = useState<Record<string, boolean>>({});
+  const [expandedSats, setExpandedSats] = useState<Record<string, boolean>>(defaultExpandedSats);
 
   const toggleSatExpand = (id: string) => {
     setExpandedSats((prev) => ({ ...prev, [id]: !prev[id] }));

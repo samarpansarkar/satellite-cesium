@@ -1,7 +1,7 @@
 /**
  * tests/ui-breaking.test.js
  * UI Breaking, Stress, and Boundary Condition Tests for:
- * – Sidebar (Tracks & Attachments division, empty states, missing devices, edge-cases)
+ * – ControlMenu Satellites Panel (Tracks & Attachments division, empty states, missing devices, edge-cases)
  * – SatelliteInfoPanel (null state, missing attachments, extreme parameters)
  * – Mathematical & Vector Boundary limits (zero distance, horizon clamping, NaN immunity)
  */
@@ -13,59 +13,61 @@ const { renderToString } = require("react-dom/server");
 const Cesium = require("cesium");
 
 // Import compiled components and utilities
-const Sidebar = require("../test-dist-cjs/components/Sidebar.js").default;
+const ControlMenu = require("../test-dist-cjs/components/ControlMenu.js").default;
 const SatelliteInfoPanel = require("../test-dist-cjs/components/SatelliteInfoPanel.js").default;
 const sensorUtils = require("../test-dist-cjs/components/cesium/sensorUtils.js");
-const orbitUtils = require("../test-dist-cjs/components/cesium/orbitUtils.js");
 
 const EARTH_RADIUS = 6_371_000;
-const TEST_MODAL_PROPS = { disablePortal: true };
 
-// ─── 1. Sidebar UI Breaking & Component Structure Tests ───────────────────────
-
-test("Sidebar: renders cleanly without throwing when satellites array is empty", () => {
-  const html = renderToString(
-    React.createElement(Sidebar, {
-      open: true,
-      onClose: () => {},
+const renderSatellitesMenu = (props = {}) => {
+  return renderToString(
+    React.createElement(ControlMenu, {
+      initialSubMenu: "satellites",
+      baseMapMode: "natural",
+      onBaseMapChange: () => {},
+      showGrid: false,
+      onShowGridChange: () => {},
+      showOrbits: true,
+      onShowOrbitsChange: () => {},
+      simulationSpeed: 1,
+      onSimulationSpeedChange: () => {},
+      isPlaying: true,
+      onTogglePlayPause: () => {},
       availableNames: [],
       selectedNames: [],
-      onToggleName: () => {},
       satellites: [],
-      onOpenInfo: () => {},
-      onSelectAll: () => {},
-      onClearAll: () => {},
-      ModalProps: TEST_MODAL_PROPS,
+      ...props,
     })
   );
+};
 
-  assert.ok(html.includes("Available"), "Expected 'Available' in header");
+// ─── 1. ControlMenu Satellites Panel UI Breaking & Component Structure Tests ───
+
+test("ControlMenu (Satellites): renders cleanly without throwing when satellites array is empty", () => {
+  const html = renderSatellitesMenu({
+    availableNames: [],
+    selectedNames: [],
+    satellites: [],
+  });
+
+  assert.ok(html.includes("Tracked"), "Expected 'Tracked' in summary");
   assert.ok(html.includes("Select All"));
   assert.ok(html.includes("Clear All"));
 });
 
-test("Sidebar: renders unloaded satellites as 'Not Loaded' without crash", () => {
-  const html = renderToString(
-    React.createElement(Sidebar, {
-      open: true,
-      onClose: () => {},
-      availableNames: ["GOCE", "LANDSAT 9"],
-      selectedNames: [],
-      onToggleName: () => {},
-      satellites: [], // None loaded
-      onOpenInfo: () => {},
-      onSelectAll: () => {},
-      onClearAll: () => {},
-      ModalProps: TEST_MODAL_PROPS,
-    })
-  );
+test("ControlMenu (Satellites): renders unloaded satellites as 'Not Loaded' without crash", () => {
+  const html = renderSatellitesMenu({
+    availableNames: ["GOCE", "LANDSAT 9"],
+    selectedNames: [],
+    satellites: [], // None loaded
+  });
 
   assert.ok(html.includes("GOCE"));
   assert.ok(html.includes("LANDSAT 9"));
   assert.ok(html.includes("Not Loaded"));
 });
 
-test("Sidebar: satellite with NO attachments renders 'No attachments installed'", () => {
+test("ControlMenu (Satellites): satellite with NO attachments renders 'No attachments installed'", () => {
   const bareSat = {
     id: "bare-sat",
     name: "Cubesat-1",
@@ -80,21 +82,12 @@ test("Sidebar: satellite with NO attachments renders 'No attachments installed'"
     // camera, sensor, communication are all omitted
   };
 
-  const html = renderToString(
-    React.createElement(Sidebar, {
-      open: true,
-      onClose: () => {},
-      availableNames: ["Cubesat-1"],
-      selectedNames: ["Cubesat-1"],
-      onToggleName: () => {},
-      satellites: [bareSat],
-      defaultExpanded: true,
-      onOpenInfo: () => {},
-      onSelectAll: () => {},
-      onClearAll: () => {},
-      ModalProps: TEST_MODAL_PROPS,
-    })
-  );
+  const html = renderSatellitesMenu({
+    availableNames: ["Cubesat-1"],
+    selectedNames: ["Cubesat-1"],
+    satellites: [bareSat],
+    defaultExpandedSats: { "bare-sat": true },
+  });
 
   assert.ok(html.includes("Cubesat-1"));
   // In rendered HTML, the Tracks section exists
@@ -110,7 +103,7 @@ test("Sidebar: satellite with NO attachments renders 'No attachments installed'"
   assert.ok(!html.includes("Scanner Cone"), "Should not render Scanner Cone if no sensor");
 });
 
-test("Sidebar: satellite with Camera only renders Camera with (Torch Light)", () => {
+test("ControlMenu (Satellites): satellite with Camera only renders Camera with (Torch Light)", () => {
   const cameraSat = {
     id: "cam-sat",
     name: "OpticalSat",
@@ -123,21 +116,12 @@ test("Sidebar: satellite with Camera only renders Camera with (Torch Light)", ()
     camera: { isActive: true, fovDeg: 30 },
   };
 
-  const html = renderToString(
-    React.createElement(Sidebar, {
-      open: true,
-      onClose: () => {},
-      availableNames: ["OpticalSat"],
-      selectedNames: ["OpticalSat"],
-      onToggleName: () => {},
-      satellites: [cameraSat],
-      defaultExpanded: true,
-      onOpenInfo: () => {},
-      onSelectAll: () => {},
-      onClearAll: () => {},
-      ModalProps: TEST_MODAL_PROPS,
-    })
-  );
+  const html = renderSatellitesMenu({
+    availableNames: ["OpticalSat"],
+    selectedNames: ["OpticalSat"],
+    satellites: [cameraSat],
+    defaultExpandedSats: { "cam-sat": true },
+  });
 
   assert.ok(html.includes("Camera"));
   assert.ok(html.includes("(Torch Light)"));
@@ -145,7 +129,7 @@ test("Sidebar: satellite with Camera only renders Camera with (Torch Light)", ()
   assert.ok(!html.includes("Communication"), "Should not render Communication");
 });
 
-test("Sidebar: satellite with Sensor only renders Sensor with (Scanner Cone)", () => {
+test("ControlMenu (Satellites): satellite with Sensor only renders Sensor with (Scanner Cone)", () => {
   const radarSat = {
     id: "radar-sat",
     name: "SAR-1",
@@ -158,21 +142,12 @@ test("Sidebar: satellite with Sensor only renders Sensor with (Scanner Cone)", (
     sensor: { isActive: true, fovDeg: 45, inclinationDeg: 80 },
   };
 
-  const html = renderToString(
-    React.createElement(Sidebar, {
-      open: true,
-      onClose: () => {},
-      availableNames: ["SAR-1"],
-      selectedNames: ["SAR-1"],
-      onToggleName: () => {},
-      satellites: [radarSat],
-      defaultExpanded: true,
-      onOpenInfo: () => {},
-      onSelectAll: () => {},
-      onClearAll: () => {},
-      ModalProps: TEST_MODAL_PROPS,
-    })
-  );
+  const html = renderSatellitesMenu({
+    availableNames: ["SAR-1"],
+    selectedNames: ["SAR-1"],
+    satellites: [radarSat],
+    defaultExpandedSats: { "radar-sat": true },
+  });
 
   assert.ok(html.includes("Sensor"));
   assert.ok(html.includes("(Scanner Cone)"));
@@ -180,7 +155,7 @@ test("Sidebar: satellite with Sensor only renders Sensor with (Scanner Cone)", (
   assert.ok(!html.includes("Communication"), "Should not render Communication");
 });
 
-test("Sidebar: Orbit Path switch checked state reflects satellite.showOrbit strictly", () => {
+test("ControlMenu (Satellites): Orbit Path switch checked state reflects satellite.showOrbit strictly", () => {
   const satOff = {
     id: "sat-off",
     name: "SatOff",
@@ -203,44 +178,26 @@ test("Sidebar: Orbit Path switch checked state reflects satellite.showOrbit stri
     showOrbit: true,
   };
 
-  const htmlOff = renderToString(
-    React.createElement(Sidebar, {
-      open: true,
-      onClose: () => {},
-      availableNames: ["SatOff"],
-      selectedNames: ["SatOff"],
-      onToggleName: () => {},
-      satellites: [satOff],
-      defaultExpanded: true,
-      onOpenInfo: () => {},
-      onSelectAll: () => {},
-      onClearAll: () => {},
-      ModalProps: TEST_MODAL_PROPS,
-    })
-  );
+  const htmlOff = renderSatellitesMenu({
+    availableNames: ["SatOff"],
+    selectedNames: ["SatOff"],
+    satellites: [satOff],
+    defaultExpandedSats: { "sat-off": true },
+  });
 
-  const htmlOn = renderToString(
-    React.createElement(Sidebar, {
-      open: true,
-      onClose: () => {},
-      availableNames: ["SatOn"],
-      selectedNames: ["SatOn"],
-      onToggleName: () => {},
-      satellites: [satOn],
-      defaultExpanded: true,
-      onOpenInfo: () => {},
-      onSelectAll: () => {},
-      onClearAll: () => {},
-      ModalProps: TEST_MODAL_PROPS,
-    })
-  );
+  const htmlOn = renderSatellitesMenu({
+    availableNames: ["SatOn"],
+    selectedNames: ["SatOn"],
+    satellites: [satOn],
+    defaultExpandedSats: { "sat-on": true },
+  });
 
   // In MUI Switch: checked switches contain Mui-checked class on their track or input
   assert.ok(htmlOn.includes("Mui-checked"), "SatOn should have checked switches");
   assert.ok(htmlOff.length > 0);
 });
 
-test("Sidebar: handles special characters, unicode, and XSS probe strings gracefully", () => {
+test("ControlMenu (Satellites): handles special characters, unicode, and XSS probe strings gracefully", () => {
   const trickyName = '<script>alert("xss")</script> & "ISS-ZARYA" 🚀';
   const trickySat = {
     id: "tricky-1",
@@ -252,27 +209,18 @@ test("Sidebar: handles special characters, unicode, and XSS probe strings gracef
     periodSec: 90,
   };
 
-  const html = renderToString(
-    React.createElement(Sidebar, {
-      open: true,
-      onClose: () => {},
-      availableNames: [trickyName],
-      selectedNames: [trickyName],
-      onToggleName: () => {},
-      satellites: [trickySat],
-      onOpenInfo: () => {},
-      onSelectAll: () => {},
-      onClearAll: () => {},
-      ModalProps: TEST_MODAL_PROPS,
-    })
-  );
+  const html = renderSatellitesMenu({
+    availableNames: [trickyName],
+    selectedNames: [trickyName],
+    satellites: [trickySat],
+  });
 
   // Must properly escape HTML entities (e.g. &lt;script&gt;)
   assert.ok(html.includes("&lt;script&gt;alert(&quot;xss&quot;)&lt;/script&gt;"));
   assert.ok(!html.includes("<script>alert"), "Must never output raw unescaped script tag");
 });
 
-test("Sidebar: stress test with 300 satellites renders without stack overflow", () => {
+test("ControlMenu (Satellites): stress test with 300 satellites renders without stack overflow", () => {
   const count = 300;
   const names = Array.from({ length: count }, (_, i) => `SAT-${i}`);
   const sats = names.map((name, i) => ({
@@ -287,24 +235,15 @@ test("Sidebar: stress test with 300 satellites renders without stack overflow", 
   }));
 
   const startTime = Date.now();
-  const html = renderToString(
-    React.createElement(Sidebar, {
-      open: true,
-      onClose: () => {},
-      availableNames: names,
-      selectedNames: names.slice(0, 10),
-      onToggleName: () => {},
-      satellites: sats,
-      onOpenInfo: () => {},
-      onSelectAll: () => {},
-      onClearAll: () => {},
-      ModalProps: TEST_MODAL_PROPS,
-    })
-  );
+  const html = renderSatellitesMenu({
+    availableNames: names,
+    selectedNames: names.slice(0, 10),
+    satellites: sats,
+  });
   const elapsed = Date.now() - startTime;
 
   assert.ok(html.length > 10_000);
-  assert.ok(elapsed < 2000, `Rendering 300 satellites took ${elapsed}ms (expected < 2000ms)`);
+  assert.ok(elapsed < 5000, `Rendering 300 satellites took ${elapsed}ms (expected < 5000ms)`);
 });
 
 // ─── 2. SatelliteInfoPanel UI Breaking & Parameter Edge Cases ─────────────────

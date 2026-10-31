@@ -160,25 +160,6 @@ export function computeSegmentedSwathGeometry(
   return { segments, leftBorder, rightBorder, leadingEdge };
 }
 
-/** @deprecated Use computeSegmentedSwathGeometry instead. */
-export function computeSmoothDynamicSwathGeometry(
-  sat: SatelliteData,
-  timeSec: number,
-  swathWidthMeters: number,
-  _samples = 80,
-  trailRatio = 0.08,
-  _leadRatio = 0
-) {
-  const data = computeSegmentedSwathGeometry(sat, timeSec, swathWidthMeters, trailRatio);
-  return {
-    hierarchy: data.segments[0].hierarchy,
-    leftBorder: data.leftBorder,
-    rightBorder: data.rightBorder,
-    leadingEdge: data.leadingEdge,
-    trailingEdge: [data.leftBorder[0], data.rightBorder[0]],
-  };
-}
-
 // ─── React component ──────────────────────────────────────────────────────────
 
 export interface SwathProps {

@@ -21,7 +21,7 @@
  *   cesium/SatelliteEntities.tsx  – Cesium Entity JSX for one satellite
  */
 
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useRef, useMemo } from "react";
 import {
   Viewer,
   ImageryLayer,
@@ -106,8 +106,7 @@ export default function CesiumViewer({
   const orbitPaths = useOrbitPaths(satellites);
 
   // ── Satellite map (O(1) live-data lookup) ─────────────────────────────────
-  const satMapRef = useRef(new Map<string, SatelliteData>());
-  satMapRef.current = new Map(satellites.map((s) => [s.id, s]));
+  const satMap = useMemo(() => new Map(satellites.map((s) => [s.id, s])), [satellites]);
 
   // ── Loading guard ─────────────────────────────────────────────────────────
   if (!naturalEarthProvider || !gridProvider) {
@@ -185,7 +184,7 @@ export default function CesiumViewer({
 
         {/* ── Satellite Entities ─────────────────────────────────────────── */}
         {visibleSats.map((orbit) => {
-          const liveSat = satMapRef.current.get(orbit.id);
+          const liveSat = satMap.get(orbit.id);
           if (!liveSat) return null;
 
           return (

@@ -51,9 +51,9 @@ The application adopts an isolated client-side rendering pipeline with Next.js d
 flowchart TD
     subgraph Browser ["Client Runtime (Browser)"]
         subgraph UI ["User Interface Layer (MUI v9)"]
-            NAV[Navbar Component]
-            SB[Sidebar Drawer]
+            MENU[ControlMenu Floating Panel]
             FC[Footer Controls Panel]
+            TIME[TimeControlBar HUD]
             INFO[Satellite Info Panel]
         end
 
@@ -225,18 +225,17 @@ if (typeof window !== "undefined") {
   - `BillboardGraphics`: Custom embedded SVG icon.
   - `LabelGraphics`: Bold, anti-aliased font with semi-transparent black pill backdrop and disabled depth testing for unobstructed visibility across the globe.
 
-### 4. `components/Sidebar.tsx` (Constellation Navigation)
-- Width: `340px` anchored to the left.
-- Header displays total registered satellite count.
-- Action toolbar with dual buttons:
-  - **Show All**: Makes all satellites visible at once.
-  - **Hide All**: Unchecks all satellites.
-- List items featuring:
-  - Checkbox toggle for visibility.
-  - Color dot indicator with matching CSS box-shadow glow.
-  - Primary title (satellite name) and secondary caption (satellite type/classification).
-  - Info button icon triggering detailed telemetry.
-- Custom CSS eliminating native scrollbars (`msOverflowStyle: 'none'`, `scrollbarWidth: 'none'`).
+### 4. `components/ControlMenu.tsx` (Floating Mission Control)
+- Collapsible floating glassmorphic mission control menu with 9 categories:
+  - **Bookmarks**: Preset vantage point shortcuts (Global, Equator, Poles, Continents).
+  - **Satellites**: Satellite management panel with live search, bulk Select/Clear, Tracks toggles (Ground track, Swath, Orbit path), and Attachments toggles (Camera, Sensor, Communications).
+  - **Components**: Quick attachments summary & status.
+  - **Map**: Base map (Natural Earth II vs Tactical Grid) and coordinate grid toggle.
+  - **Locations**: Ground stations and telemetry hubs.
+  - **Globe**: Atmosphere, night-side lighting, and depth testing controls.
+  - **Sky**: Skybox and celestial background settings.
+  - **Graphics**: Simulation speed slider, play/pause, and show orbits toggle.
+  - **About**: Mission operations telemetry HUD guide.
 
 ### 5. `components/FooterControls.tsx` (Mission Control Center)
 - Fixed bottom docked bar (`60px` height) with dark paper background.
@@ -253,12 +252,6 @@ if (typeof window !== "undefined") {
   - **Orbital Period**: Seconds per full revolution.
   - **Speed Multiplier**: Velocity modifier factor.
 - Includes a close button to dismiss the overlay.
-
-### 7. `components/Navbar.tsx` (Header)
-- Dark paper app bar with bottom border divider.
-- Hamburger menu button for sidebar drawer toggle.
-- Glowing cyan gradient satellite badge.
-- Gradient typography branding for "Orbit Tracker".
 
 ### 8. `app/Providers.tsx` (Theme & Styling Engine)
 - Configures MUI `darkTheme`:
@@ -343,10 +336,11 @@ satellite-cesium/
 ├── components/
 │   ├── CesiumViewer.tsx         # Core CesiumJS/Resium 3D WebGL implementation
 │   ├── CesiumWrapper.tsx        # Next.js dynamic client boundary (SSR: false)
+│   ├── ControlMenu.tsx          # Floating Mission Control panel with satellite manager
 │   ├── FooterControls.tsx       # Bottom HUD (speed slider, orbit & map toggles)
-│   ├── Navbar.tsx               # Header bar with drawer toggle & branding
 │   ├── SatelliteInfoPanel.tsx   # Floating satellite telemetry HUD card
-│   └── Sidebar.tsx              # Satellite selector drawer with bulk actions
+│   ├── TimeControlBar.tsx       # Chronological UTC mission clock & timeline scrubber
+│   └── cesium/                  # Modular Cesium 3D layers, math & effect components
 ├── lib/
 │   └── satellites.ts            # Satellite catalog data, coordinates & types
 ├── public/
