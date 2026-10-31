@@ -67,6 +67,17 @@ export default function CesiumViewer({
 }: CesiumViewerProps) {
   const viewerRef = useRef<CesiumComponentRef<Cesium.Viewer>>(null);
 
+  // Attach Cesium viewer instance for camera flyTo & environment controls
+  useEffect(() => {
+    if (viewerRef.current?.cesiumElement) {
+      (window as unknown as { cesiumViewer?: Cesium.Viewer }).cesiumViewer =
+        viewerRef.current.cesiumElement;
+    }
+    return () => {
+      delete (window as unknown as { cesiumViewer?: Cesium.Viewer }).cesiumViewer;
+    };
+  });
+
   // ── Animation clock sync ──────────────────────────────────────────────────
   useEffect(() => {
     animClock.speed = isPlaying ? simulationSpeed : 0;

@@ -10,6 +10,7 @@ import Sidebar from "@/components/Sidebar";
 import FooterControls from "@/components/FooterControls";
 import TimeControlBar from "@/components/TimeControlBar";
 import SatelliteInfoPanel from "@/components/SatelliteInfoPanel";
+import ControlMenu from "@/components/ControlMenu";
 
 export default function Home() {
   const { availableNames, satellites, loadSatellitesByNames, updateSatellite, updateAttachmentFov, updateSensorInclination } = useSatellites();
@@ -90,6 +91,24 @@ export default function Home() {
             showOrbits={showOrbits}
             showGrid={showGrid}
             baseMapMode={baseMapMode}
+          />
+
+          {/* Floating Mission Control Menu */}
+          <ControlMenu
+            onToggleSidebar={() => setDrawerOpen((prev) => !prev)}
+            satellites={satellites}
+            selectedSat={selectedSatInfo}
+            onUpdateSatellite={updateSatellite}
+            baseMapMode={baseMapMode}
+            onBaseMapChange={setBaseMapMode}
+            showGrid={showGrid}
+            onShowGridChange={setShowGrid}
+            showOrbits={showOrbits}
+            onShowOrbitsChange={setShowOrbits}
+            simulationSpeed={simulationSpeed}
+            onSimulationSpeedChange={handleSimulationSpeedChange}
+            isPlaying={isPlaying}
+            onTogglePlayPause={handleTogglePlayPause}
           />
 
           <SatelliteInfoPanel 
