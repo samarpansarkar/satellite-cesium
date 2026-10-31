@@ -3,6 +3,7 @@
 /**
  * SatelliteInfoPanel.tsx
  * Floating telemetry HUD card for inspected satellite.
+ * Structured with dedicated tabs: Info, Tracks, and Attachments.
  * Styled with the same glassmorphic aesthetic as ControlMenu.
  */
 
@@ -28,6 +29,7 @@ import PublicOutlinedIcon from "@mui/icons-material/PublicOutlined";
 import SensorsIcon from "@mui/icons-material/Sensors";
 import VideocamOutlinedIcon from "@mui/icons-material/VideocamOutlined";
 import SettingsInputAntennaIcon from "@mui/icons-material/SettingsInputAntenna";
+import SpeedIcon from "@mui/icons-material/Speed";
 import type { SatelliteData } from "@/lib/types";
 
 // ─── Design Tokens Matching ControlMenu ───────────────────────────────────────
@@ -45,22 +47,37 @@ const C = {
   cardBg: "rgba(255, 255, 255, 0.02)",
 } as const;
 
+export type PanelTab = "info" | "tracks" | "attachments";
+
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
 /** Label + value pair used in orbital parameters */
-function ParamRow({ label, value }: { label: string; value: string }) {
+function ParamRow({
+  label,
+  value,
+  subtext,
+}: {
+  label: string;
+  value: string;
+  subtext?: string;
+}) {
   return (
     <Box
       sx={{
         display: "flex",
         justifyContent: "space-between",
         alignItems: "center",
-        py: 0.6,
+        py: 0.65,
         borderBottom: `1px solid ${C.subBorder}`,
         "&:last-child": { borderBottom: "none" },
       }}
     >
-      <Typography sx={{ fontSize: "0.78rem", color: C.label }}>{label}</Typography>
+      <Box>
+        <Typography sx={{ fontSize: "0.78rem", color: C.label }}>{label}</Typography>
+        {subtext && (
+          <Typography sx={{ fontSize: "0.64rem", color: "#64748b" }}>{subtext}</Typography>
+        )}
+      </Box>
       <Typography
         sx={{
           fontSize: "0.82rem",
@@ -79,26 +96,35 @@ function ParamRow({ label, value }: { label: string; value: string }) {
 function SectionHeader({
   icon,
   title,
+  caption,
 }: {
   icon: React.ReactNode;
   title: string;
+  caption?: string;
 }) {
   return (
-    <Box sx={{ display: "flex", alignItems: "center", gap: 0.75, mb: 1 }}>
-      <Box sx={{ color: C.accent, display: "flex", alignItems: "center" }}>
-        {icon}
+    <Box sx={{ mb: 1 }}>
+      <Box sx={{ display: "flex", alignItems: "center", gap: 0.75 }}>
+        <Box sx={{ color: C.accent, display: "flex", alignItems: "center" }}>
+          {icon}
+        </Box>
+        <Typography
+          sx={{
+            fontSize: "0.68rem",
+            fontWeight: 700,
+            letterSpacing: "0.06em",
+            textTransform: "uppercase",
+            color: C.accent,
+          }}
+        >
+          {title}
+        </Typography>
       </Box>
-      <Typography
-        sx={{
-          fontSize: "0.68rem",
-          fontWeight: 700,
-          letterSpacing: "0.06em",
-          textTransform: "uppercase",
-          color: C.accent,
-        }}
-      >
-        {title}
-      </Typography>
+      {caption && (
+        <Typography sx={{ fontSize: "0.68rem", color: C.label, mt: 0.25 }}>
+          {caption}
+        </Typography>
+      )}
     </Box>
   );
 }
@@ -294,9 +320,27 @@ function SubsystemCardHeader({
   );
 }
 
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+function getOrbitRegime(altitudeKm: number): string {
+  if (altitudeKm < 2000) return "LEO (Low Earth Orbit)";
+  if (altitudeKm < 35000) return "MEO (Medium Earth Orbit)";
+  if (Math.abs(altitudeKm - 35786) < 1000) return "GEO (Geostationary)";
+  return "HEO (High Earth Orbit)";
+}
+
+function formatPeriod(periodSec: number): string {
+  const h = Math.floor(periodSec / 3600);
+  const m = Math.floor((periodSec % 3600) / 60);
+  const s = periodSec % 60;
+  if (h > 0) return `${h}h ${m}m ${s}s`;
+  if (m > 0) return `${m}m ${s}s`;
+  return `${s}s`;
+}
+
 // ─── Props ────────────────────────────────────────────────────────────────────
 
-interface SatelliteInfoPanelProps {
+export interface SatelliteInfoPanelProps {
   satellite: SatelliteData | null;
   onClose: () => void;
   isPlaying?: boolean;
@@ -304,6 +348,7 @@ interface SatelliteInfoPanelProps {
   onUpdateSatellite?: (id: string, data: Partial<SatelliteData>) => void;
   onUpdateFov?: (id: string, type: "camera" | "sensor", fovDeg: number) => void;
   onUpdateSensorInclination?: (id: string, inclinationDeg: number) => void;
+  initialTab?: PanelTab;
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -316,6 +361,7 @@ export default function SatelliteInfoPanel({
   onUpdateSatellite,
   onUpdateFov,
   onUpdateSensorInclination,
+  initialTab = "info",
 }: SatelliteInfoPanelProps) {
   const cardRef = useRef<HTMLDivElement>(null);
   const posRef = useRef({ x: 0, y: 0 });
@@ -323,6 +369,7 @@ export default function SatelliteInfoPanel({
   const rafRef = useRef<number | null>(null);
   const [positioned, setPositioned] = useState(false);
   const [isMinimized, setIsMinimized] = useState(false);
+  const [activeTab, setActiveTab] = useState<PanelTab>(initialTab);
 
   const handleToggleMinimize = (e?: React.MouseEvent) => {
     e?.stopPropagation();
@@ -398,6 +445,10 @@ export default function SatelliteInfoPanel({
   );
   const swathKm = satellite.swathWidthKm ?? defaultSwathKm;
 
+  // Active counts for tab badges
+  const activeTracksCount = [satellite.showOrbit, satellite.showGroundTrack, satellite.showSwath].filter(Boolean).length;
+  const activeAttachmentsCount = [satellite.camera?.isActive, satellite.sensor?.isActive, satellite.communication?.isActive].filter(Boolean).length;
+
   return (
     <Box
       ref={cardRef}
@@ -405,7 +456,7 @@ export default function SatelliteInfoPanel({
         position: "fixed",
         top: positioned ? undefined : "80px",
         right: positioned ? undefined : "24px",
-        width: 350,
+        width: 360,
         maxHeight: isMinimized ? "none" : "calc(100vh - 120px)",
         display: "flex",
         flexDirection: "column",
@@ -542,13 +593,153 @@ export default function SatelliteInfoPanel({
         </Box>
       </Box>
 
-      {/* ── Body ───────────────────────────────────────────────────────────── */}
+      {/* ── Section Tabs Navigation Bar ─────────────────────────────────────── */}
+      {!isMinimized && (
+        <Box
+          sx={{
+            display: "grid",
+            gridTemplateColumns: "1fr 1fr 1fr",
+            gap: 0.75,
+            px: 1.5,
+            py: 0.85,
+            borderBottom: "1px solid rgba(255, 255, 255, 0.08)",
+            bgcolor: "rgba(255, 255, 255, 0.02)",
+            flexShrink: 0,
+          }}
+        >
+          {/* Tab 1: Info */}
+          <Box
+            onClick={() => setActiveTab("info")}
+            sx={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: 0.6,
+              py: 0.6,
+              px: 0.75,
+              borderRadius: "8px",
+              cursor: "pointer",
+              bgcolor: activeTab === "info" ? "rgba(56, 189, 248, 0.14)" : "rgba(255, 255, 255, 0.03)",
+              border: `1px solid ${activeTab === "info" ? "#38bdf8" : "rgba(255, 255, 255, 0.06)"}`,
+              transition: "all 0.15s ease",
+              "&:hover": {
+                bgcolor: activeTab === "info" ? "rgba(56, 189, 248, 0.2)" : "rgba(255, 255, 255, 0.06)",
+              },
+            }}
+          >
+            <PublicOutlinedIcon sx={{ fontSize: 14, color: activeTab === "info" ? "#38bdf8" : "#94a3b8" }} />
+            <Typography
+              sx={{
+                fontSize: "0.76rem",
+                fontWeight: activeTab === "info" ? 700 : 500,
+                color: activeTab === "info" ? "#38bdf8" : "#cbd5e1",
+              }}
+            >
+              Info
+            </Typography>
+          </Box>
+
+          {/* Tab 2: Tracks */}
+          <Box
+            onClick={() => setActiveTab("tracks")}
+            sx={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: 0.6,
+              py: 0.6,
+              px: 0.75,
+              borderRadius: "8px",
+              cursor: "pointer",
+              bgcolor: activeTab === "tracks" ? "rgba(56, 189, 248, 0.14)" : "rgba(255, 255, 255, 0.03)",
+              border: `1px solid ${activeTab === "tracks" ? "#38bdf8" : "rgba(255, 255, 255, 0.06)"}`,
+              transition: "all 0.15s ease",
+              "&:hover": {
+                bgcolor: activeTab === "tracks" ? "rgba(56, 189, 248, 0.2)" : "rgba(255, 255, 255, 0.06)",
+              },
+            }}
+          >
+            <TimelineIcon sx={{ fontSize: 14, color: activeTab === "tracks" ? "#38bdf8" : "#94a3b8" }} />
+            <Typography
+              sx={{
+                fontSize: "0.76rem",
+                fontWeight: activeTab === "tracks" ? 700 : 500,
+                color: activeTab === "tracks" ? "#38bdf8" : "#cbd5e1",
+              }}
+            >
+              Tracks
+            </Typography>
+            {activeTracksCount > 0 && (
+              <Box
+                sx={{
+                  px: 0.5,
+                  py: 0.05,
+                  borderRadius: "10px",
+                  fontSize: "0.6rem",
+                  fontWeight: 700,
+                  bgcolor: "rgba(56, 189, 248, 0.25)",
+                  color: "#38bdf8",
+                }}
+              >
+                {activeTracksCount}
+              </Box>
+            )}
+          </Box>
+
+          {/* Tab 3: Attachments */}
+          <Box
+            onClick={() => setActiveTab("attachments")}
+            sx={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: 0.6,
+              py: 0.6,
+              px: 0.75,
+              borderRadius: "8px",
+              cursor: "pointer",
+              bgcolor: activeTab === "attachments" ? "rgba(56, 189, 248, 0.14)" : "rgba(255, 255, 255, 0.03)",
+              border: `1px solid ${activeTab === "attachments" ? "#38bdf8" : "rgba(255, 255, 255, 0.06)"}`,
+              transition: "all 0.15s ease",
+              "&:hover": {
+                bgcolor: activeTab === "attachments" ? "rgba(56, 189, 248, 0.2)" : "rgba(255, 255, 255, 0.06)",
+              },
+            }}
+          >
+            <SensorsIcon sx={{ fontSize: 14, color: activeTab === "attachments" ? "#38bdf8" : "#94a3b8" }} />
+            <Typography
+              sx={{
+                fontSize: "0.76rem",
+                fontWeight: activeTab === "attachments" ? 700 : 500,
+                color: activeTab === "attachments" ? "#38bdf8" : "#cbd5e1",
+              }}
+            >
+              Attachments
+            </Typography>
+            {activeAttachmentsCount > 0 && (
+              <Box
+                sx={{
+                  px: 0.5,
+                  py: 0.05,
+                  borderRadius: "10px",
+                  fontSize: "0.6rem",
+                  fontWeight: 700,
+                  bgcolor: "rgba(56, 189, 248, 0.25)",
+                  color: "#38bdf8",
+                }}
+              >
+                {activeAttachmentsCount}
+              </Box>
+            )}
+          </Box>
+        </Box>
+      )}
+
+      {/* ── Body (Tab Panels) ──────────────────────────────────────────────── */}
       <Box
         onPointerDown={(e) => e.stopPropagation()}
         sx={{
-          display: isMinimized ? "none" : "flex",
-          flexDirection: "column",
-          gap: 1.5,
+          display: isMinimized ? "none" : "block",
           p: 1.75,
           overflowY: "auto",
           flexGrow: 1,
@@ -561,34 +752,89 @@ export default function SatelliteInfoPanel({
           "&::-webkit-scrollbar-thumb": { background: "rgba(255, 255, 255, 0.15)", borderRadius: "3px" },
         }}
       >
-        {/* ── 1. Orbital Parameters ────────────────────────────────────────── */}
-        <Box>
-          <SectionHeader
-            icon={<PublicOutlinedIcon sx={{ fontSize: 15 }} />}
-            title="Orbital Parameters"
-          />
-          <Box
-            sx={{
-              p: 1.25,
-              borderRadius: "10px",
-              bgcolor: C.cardBg,
-              border: `1px solid ${C.subBorder}`,
-            }}
-          >
-            <ParamRow label="Altitude" value={`${satellite.altitudeKm.toLocaleString()} km`} />
-            <ParamRow label="Inclination" value={`${satellite.inclinationDeg}°`} />
-            <ParamRow label="Orbital Period" value={`${satellite.periodSec} s`} />
-            <ParamRow label="Speed Multiplier" value={`${satellite.speedMultiplier}×`} />
+        {/* ── TAB 1: INFO (Telemetry & Orbital Mechanics) ───────────────────── */}
+        <Box sx={{ display: activeTab === "info" ? "flex" : "none", flexDirection: "column", gap: 1.5 }}>
+          {/* Orbital Parameters */}
+          <Box>
+            <SectionHeader
+              icon={<PublicOutlinedIcon sx={{ fontSize: 15 }} />}
+              title="Orbital Parameters"
+              caption="Live Keplerian elements and trajectory metrics"
+            />
+            <Box
+              sx={{
+                p: 1.25,
+                borderRadius: "10px",
+                bgcolor: C.cardBg,
+                border: `1px solid ${C.subBorder}`,
+              }}
+            >
+              <ParamRow label="Altitude" value={`${satellite.altitudeKm.toLocaleString()} km`} subtext="Distance above Earth surface" />
+              <ParamRow label="Inclination" value={`${satellite.inclinationDeg}°`} subtext="Orbital plane tilt vs equator" />
+              <ParamRow label="Orbital Period" value={`${satellite.periodSec} s`} subtext={`Approx: ${formatPeriod(satellite.periodSec)}`} />
+              <ParamRow label="Speed Multiplier" value={`${satellite.speedMultiplier}×`} subtext="Relative orbital velocity factor" />
+            </Box>
           </Box>
+
+          <Divider sx={{ borderColor: "rgba(255, 255, 255, 0.08)" }} />
+
+          {/* Classification & Orbit Regime */}
+          <Box>
+            <SectionHeader
+              icon={<SpeedIcon sx={{ fontSize: 15 }} />}
+              title="Classification & Regime"
+            />
+            <Box
+              sx={{
+                p: 1.25,
+                borderRadius: "10px",
+                bgcolor: C.cardBg,
+                border: `1px solid ${C.subBorder}`,
+              }}
+            >
+              <ParamRow label="Type / Mission" value={satellite.type ?? "Earth Observation"} />
+              <ParamRow label="Orbital Regime" value={getOrbitRegime(satellite.altitudeKm)} />
+              <ParamRow label="Catalog ID" value={satellite.id} />
+            </Box>
+          </Box>
+
+          {/* TLE Data (if present) */}
+          {satellite.tleLine1 && satellite.tleLine2 && (
+            <>
+              <Divider sx={{ borderColor: "rgba(255, 255, 255, 0.08)" }} />
+              <Box>
+                <SectionHeader
+                  icon={<DragIndicatorIcon sx={{ fontSize: 15 }} />}
+                  title="TLE Telemetry Elements"
+                />
+                <Box
+                  sx={{
+                    p: 1.2,
+                    borderRadius: "8px",
+                    bgcolor: "rgba(0, 0, 0, 0.3)",
+                    border: `1px solid ${C.subBorder}`,
+                    fontFamily: "ui-monospace, monospace",
+                    fontSize: "0.68rem",
+                    color: "#cbd5e1",
+                    overflowX: "auto",
+                    whiteSpace: "pre",
+                  }}
+                >
+                  {satellite.tleLine1}
+                  {"\n"}
+                  {satellite.tleLine2}
+                </Box>
+              </Box>
+            </>
+          )}
         </Box>
 
-        <Divider sx={{ borderColor: "rgba(255, 255, 255, 0.08)" }} />
-
-        {/* ── 2. Coverage ─────────────────────────────────────────────────── */}
-        <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
+        {/* ── TAB 2: TRACKS (Coverage & Surface Trajectories) ───────────────── */}
+        <Box sx={{ display: activeTab === "tracks" ? "flex" : "none", flexDirection: "column", gap: 1.25 }}>
           <SectionHeader
             icon={<TimelineIcon sx={{ fontSize: 15 }} />}
-            title="Coverage"
+            title="Coverage & Tracks"
+            caption="Toggle orbital paths and surface ground tracks"
           />
 
           <ToggleCardRow
@@ -625,7 +871,7 @@ export default function SatelliteInfoPanel({
                 display: "flex",
                 flexDirection: "column",
                 gap: 0.75,
-                mt: 0.25,
+                mt: 0.5,
               }}
             >
               <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
@@ -653,13 +899,12 @@ export default function SatelliteInfoPanel({
           )}
         </Box>
 
-        <Divider sx={{ borderColor: "rgba(255, 255, 255, 0.08)" }} />
-
-        {/* ── 3. Attachments ──────────────────────────────────────────────── */}
-        <Box sx={{ display: "flex", flexDirection: "column", gap: 1.25 }}>
+        {/* ── TAB 3: ATTACHMENTS (Sensors, Cameras, Comm) ──────────────────── */}
+        <Box sx={{ display: activeTab === "attachments" ? "flex" : "none", flexDirection: "column", gap: 1.25 }}>
           <SectionHeader
             icon={<SensorsIcon sx={{ fontSize: 15 }} />}
             title="Attachments"
+            caption="Visual sensory payloads and downlink antennas"
           />
 
           {/* Camera */}
