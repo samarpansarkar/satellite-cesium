@@ -1,4 +1,12 @@
-import React, { useEffect, useRef, useState } from 'react';
+"use client";
+
+/**
+ * SatelliteInfoPanel.tsx
+ * Floating telemetry HUD card for inspected satellite.
+ * Styled with the same glassmorphic aesthetic as ControlMenu.
+ */
+
+import React, { useEffect, useRef, useState } from "react";
 import {
   Box,
   Divider,
@@ -15,62 +23,94 @@ import RemoveIcon from "@mui/icons-material/Remove";
 import CropSquareIcon from "@mui/icons-material/CropSquare";
 import PlayArrowIcon from "@mui/icons-material/PlayArrow";
 import PauseIcon from "@mui/icons-material/Pause";
+import TimelineIcon from "@mui/icons-material/Timeline";
+import PublicOutlinedIcon from "@mui/icons-material/PublicOutlined";
+import SensorsIcon from "@mui/icons-material/Sensors";
+import VideocamOutlinedIcon from "@mui/icons-material/VideocamOutlined";
+import SettingsInputAntennaIcon from "@mui/icons-material/SettingsInputAntenna";
 import type { SatelliteData } from "@/lib/types";
 
-// ─── Design tokens ────────────────────────────────────────────────────────────
-// All values are local constants so they form a coherent, consistent system.
+// ─── Design Tokens Matching ControlMenu ───────────────────────────────────────
 const C = {
-  bg:        "#0b0e18",   // panel background
-  surface:   "#0d1121",   // header surface
-  border:    "#1e2640",   // borders / dividers
-  label:     "#8b9ab0",   // secondary label  — readable against dark bg
-  value:     "#dce4ef",   // primary value    — near-white, high contrast
-  accent:    "#38bdf8",   // active / slider accent
-  accentBg:  "#0e1f33",   // accent tint for focus rings
-  warning:   "#d97706",   // ground-track amber
-  warningBg: "#1a1200",
+  bg: "rgba(18, 19, 24, 0.94)",
+  surface: "rgba(255, 255, 255, 0.04)",
+  border: "rgba(255, 255, 255, 0.12)",
+  subBorder: "rgba(255, 255, 255, 0.06)",
+  label: "#94a3b8",
+  value: "#f1f5f9",
+  accent: "#38bdf8",
+  accentBg: "rgba(56, 189, 248, 0.15)",
+  warning: "#f59e0b",
+  warningBg: "rgba(245, 158, 11, 0.15)",
+  cardBg: "rgba(255, 255, 255, 0.02)",
 } as const;
 
-// ─── Shared sub-components ────────────────────────────────────────────────────
+// ─── Sub-components ───────────────────────────────────────────────────────────
 
-/** Label + value pair used in the orbital parameters table. */
+/** Label + value pair used in orbital parameters */
 function ParamRow({ label, value }: { label: string; value: string }) {
   return (
-    <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", py: "4px", borderBottom: `1px solid ${C.border}`, "&:last-child": { borderBottom: "none" } }}>
-      <Typography sx={{ fontSize: "0.82rem", color: C.label, lineHeight: 1.6 }}>{label}</Typography>
-      <Typography sx={{ fontSize: "0.82rem", color: C.value, fontFamily: "'Courier New', monospace", fontWeight: 500 }}>
+    <Box
+      sx={{
+        display: "flex",
+        justifyContent: "space-between",
+        alignItems: "center",
+        py: 0.6,
+        borderBottom: `1px solid ${C.subBorder}`,
+        "&:last-child": { borderBottom: "none" },
+      }}
+    >
+      <Typography sx={{ fontSize: "0.78rem", color: C.label }}>{label}</Typography>
+      <Typography
+        sx={{
+          fontSize: "0.82rem",
+          fontWeight: 600,
+          color: C.value,
+          fontFamily: "ui-monospace, monospace",
+        }}
+      >
         {value}
       </Typography>
     </Box>
   );
 }
 
-/** Section heading — small caps, muted, consistent. */
-function SectionLabel({ children }: { children: React.ReactNode }) {
+/** Section heading with cyan accent matching ControlMenu */
+function SectionHeader({
+  icon,
+  title,
+}: {
+  icon: React.ReactNode;
+  title: string;
+}) {
   return (
-    <Typography
-      sx={{
-        fontSize: "0.65rem",
-        fontWeight: 700,
-        letterSpacing: "0.09em",
-        textTransform: "uppercase",
-        color: C.label,
-        mb: 1,
-      }}
-    >
-      {children}
-    </Typography>
+    <Box sx={{ display: "flex", alignItems: "center", gap: 0.75, mb: 1 }}>
+      <Box sx={{ color: C.accent, display: "flex", alignItems: "center" }}>
+        {icon}
+      </Box>
+      <Typography
+        sx={{
+          fontSize: "0.68rem",
+          fontWeight: 700,
+          letterSpacing: "0.06em",
+          textTransform: "uppercase",
+          color: C.accent,
+        }}
+      >
+        {title}
+      </Typography>
+    </Box>
   );
 }
 
-/** Inline number input with unit suffix — used for FOV, swath width, etc. */
+/** Glassmorphic Number Input */
 function NumberInput({
   value,
   unit,
   min,
   max,
   step,
-  width = 52,
+  width = 54,
   onChange,
 }: {
   value: number;
@@ -87,13 +127,16 @@ function NumberInput({
         display: "flex",
         alignItems: "center",
         gap: 0.5,
-        background: "#080b14",
+        bgcolor: "rgba(255, 255, 255, 0.04)",
         border: `1px solid ${C.border}`,
-        borderRadius: "3px",
-        px: "8px",
-        py: "2px",
-        "&:focus-within": { borderColor: C.accent },
-        transition: "border-color 0.15s",
+        borderRadius: "6px",
+        px: 1,
+        py: 0.25,
+        "&:focus-within": {
+          borderColor: C.accent,
+          bgcolor: "rgba(56, 189, 248, 0.05)",
+        },
+        transition: "all 0.15s ease",
       }}
     >
       <InputBase
@@ -106,9 +149,9 @@ function NumberInput({
         inputProps={{ min, max, step }}
         sx={{
           width,
-          fontSize: "0.82rem",
+          fontSize: "0.8rem",
           color: C.value,
-          fontFamily: "'Courier New', monospace",
+          fontFamily: "ui-monospace, monospace",
           "& input": {
             p: 0,
             textAlign: "right",
@@ -120,30 +163,40 @@ function NumberInput({
           },
         }}
       />
-      <Typography sx={{ fontSize: "0.75rem", color: C.label }}>{unit}</Typography>
+      <Typography sx={{ fontSize: "0.72rem", color: C.label }}>{unit}</Typography>
     </Box>
   );
 }
 
-/** Thin MUI slider styled to match the design system. */
+/** Slider matching ControlMenu styling */
 const sliderSx = {
   color: C.accent,
-  height: 2,
-  py: "10px",
+  height: 3,
+  py: 1,
   "& .MuiSlider-thumb": {
-    width: 10,
-    height: 10,
-    "&:hover, &.Mui-focusVisible": { boxShadow: `0 0 0 6px ${C.accentBg}` },
+    width: 12,
+    height: 12,
+    bgcolor: "#f8fafc",
+    border: "2px solid #0284c7",
+    boxShadow: "0 0 8px rgba(56, 189, 248, 0.5)",
+    "&:hover, &.Mui-focusVisible": {
+      boxShadow: "0 0 12px rgba(56, 189, 248, 0.8)",
+    },
   },
-  "& .MuiSlider-rail": { background: C.border },
+  "& .MuiSlider-rail": {
+    bgcolor: "rgba(255, 255, 255, 0.1)",
+  },
+  "& .MuiSlider-track": {
+    bgcolor: C.accent,
+  },
 } as const;
 
-/** Row with a label, description, and a toggle switch. */
-function ToggleRow({
+/** Toggle row styled with ControlMenu card aesthetic */
+function ToggleCardRow({
   label,
   description,
   checked,
-  accentColor,
+  accentColor = C.accent,
   onChange,
 }: {
   label: string;
@@ -152,13 +205,29 @@ function ToggleRow({
   accentColor?: string;
   onChange: (v: boolean) => void;
 }) {
-  const color = accentColor ?? C.accent;
   return (
-    <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 1, py: "2px" }}>
+    <Box
+      sx={{
+        display: "flex",
+        justifyContent: "space-between",
+        alignItems: "center",
+        gap: 1,
+        px: 1.25,
+        py: 0.8,
+        borderRadius: "8px",
+        bgcolor: checked ? "rgba(56, 189, 248, 0.06)" : "rgba(255, 255, 255, 0.02)",
+        border: `1px solid ${checked ? "rgba(56, 189, 248, 0.25)" : "rgba(255, 255, 255, 0.05)"}`,
+        transition: "all 0.15s ease",
+      }}
+    >
       <Box sx={{ minWidth: 0 }}>
-        <Typography sx={{ fontSize: "0.84rem", fontWeight: 500, color: C.value, lineHeight: 1.4 }}>{label}</Typography>
+        <Typography sx={{ fontSize: "0.82rem", fontWeight: 600, color: C.value, lineHeight: 1.3 }}>
+          {label}
+        </Typography>
         {description && (
-          <Typography sx={{ fontSize: "0.72rem", color: C.label, lineHeight: 1.3 }}>{description}</Typography>
+          <Typography sx={{ fontSize: "0.68rem", color: C.label, lineHeight: 1.3, mt: 0.2 }}>
+            {description}
+          </Typography>
         )}
       </Box>
       <Switch
@@ -167,35 +236,44 @@ function ToggleRow({
         onChange={(e) => onChange(e.target.checked)}
         sx={{
           flexShrink: 0,
-          "& .MuiSwitch-switchBase.Mui-checked": { color },
-          "& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track": { backgroundColor: color },
+          "& .MuiSwitch-switchBase.Mui-checked": { color: accentColor },
+          "& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track": {
+            backgroundColor: accentColor,
+            opacity: 0.8,
+          },
         }}
       />
     </Box>
   );
 }
 
-// ─── Subsystem block ──────────────────────────────────────────────────────────
-
-function SubsystemHeader({
+/** Header for subsystem attachments */
+function SubsystemCardHeader({
+  icon,
   label,
   hasDevice,
   checked,
   onToggle,
 }: {
+  icon: React.ReactNode;
   label: string;
   hasDevice: boolean;
   checked: boolean;
   onToggle: (v: boolean) => void;
 }) {
   return (
-    <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: hasDevice ? 0.75 : 0 }}>
+    <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: hasDevice ? 1 : 0 }}>
       <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-        <Typography sx={{ fontSize: "0.84rem", fontWeight: 600, color: hasDevice ? C.value : C.label }}>
+        <Box sx={{ color: hasDevice ? C.accent : C.label, display: "flex", alignItems: "center" }}>
+          {icon}
+        </Box>
+        <Typography sx={{ fontSize: "0.82rem", fontWeight: 600, color: hasDevice ? C.value : C.label }}>
           {label}
         </Typography>
         {!hasDevice && (
-          <Typography sx={{ fontSize: "0.72rem", color: C.label, fontStyle: "italic" }}>not installed</Typography>
+          <Typography sx={{ fontSize: "0.68rem", color: C.label, fontStyle: "italic" }}>
+            not installed
+          </Typography>
         )}
       </Box>
       {hasDevice && (
@@ -205,7 +283,10 @@ function SubsystemHeader({
           onChange={(e) => onToggle(e.target.checked)}
           sx={{
             "& .MuiSwitch-switchBase.Mui-checked": { color: C.accent },
-            "& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track": { backgroundColor: C.accent },
+            "& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track": {
+              backgroundColor: C.accent,
+              opacity: 0.8,
+            },
           }}
         />
       )}
@@ -236,10 +317,10 @@ export default function SatelliteInfoPanel({
   onUpdateFov,
   onUpdateSensorInclination,
 }: SatelliteInfoPanelProps) {
-  const cardRef  = useRef<HTMLDivElement>(null);
-  const posRef   = useRef({ x: 0, y: 0 });
-  const dragRef  = useRef({ active: false, mouseX: 0, mouseY: 0, initX: 0, initY: 0 });
-  const rafRef   = useRef<number | null>(null);
+  const cardRef = useRef<HTMLDivElement>(null);
+  const posRef = useRef({ x: 0, y: 0 });
+  const dragRef = useRef({ active: false, mouseX: 0, mouseY: 0, initX: 0, initY: 0 });
+  const rafRef = useRef<number | null>(null);
   const [positioned, setPositioned] = useState(false);
   const [isMinimized, setIsMinimized] = useState(false);
 
@@ -248,92 +329,72 @@ export default function SatelliteInfoPanel({
     setIsMinimized((prev) => {
       const next = !prev;
       if (!next && cardRef.current) {
-        requestAnimationFrame(() => {
-          if (!cardRef.current) return;
-          const rect = cardRef.current.getBoundingClientRect();
-          if (rect.bottom > window.innerHeight - 10) {
-            const newY = Math.max(60, window.innerHeight - rect.height - 10);
-            posRef.current.y = newY;
-            cardRef.current.style.top = `${newY}px`;
-          }
-        });
+        cardRef.current.style.height = "auto";
       }
       return next;
     });
   };
 
-  // Keep within viewport on resize
   useEffect(() => {
-    const onResize = () => {
-      if (!cardRef.current || !positioned) return;
-      const rect = cardRef.current.getBoundingClientRect();
-      const x = Math.min(posRef.current.x, window.innerWidth  - rect.width  - 10);
-      const y = Math.min(posRef.current.y, window.innerHeight - rect.height - 10);
-      posRef.current = { x: Math.max(10, x), y: Math.max(60, y) };
-      if (cardRef.current) {
-        cardRef.current.style.left = `${posRef.current.x}px`;
-        cardRef.current.style.top  = `${posRef.current.y}px`;
-      }
-    };
-    window.addEventListener("resize", onResize);
-    return () => window.removeEventListener("resize", onResize);
-  }, [positioned]);
+    if (!satellite || positioned || !cardRef.current) return;
+    const rect = cardRef.current.getBoundingClientRect();
+    const x = window.innerWidth - rect.width - 24;
+    const y = 80;
+    posRef.current = { x, y };
+    cardRef.current.style.left = `${x}px`;
+    cardRef.current.style.top = `${y}px`;
+    setPositioned(true);
+  }, [satellite, positioned]);
 
   const handlePointerDown = (e: React.PointerEvent) => {
-    if (e.button !== 0 && e.pointerType === "mouse") return;
-    if (!cardRef.current) return;
-    const el = e.currentTarget as HTMLElement;
-    try { el.setPointerCapture(e.pointerId); } catch { /* ignore */ }
+    if ((e.target as HTMLElement).closest("button, input, [role='slider']")) return;
+    dragRef.current = {
+      active: true,
+      mouseX: e.clientX,
+      mouseY: e.clientY,
+      initX: posRef.current.x,
+      initY: posRef.current.y,
+    };
+    (e.target as HTMLElement).setPointerCapture(e.pointerId);
+  };
 
-    const rect = cardRef.current.getBoundingClientRect();
-    dragRef.current = { active: true, mouseX: e.clientX, mouseY: e.clientY, initX: rect.left, initY: rect.top };
-    posRef.current  = { x: rect.left, y: rect.top };
-
-    const onMove = (me: PointerEvent) => {
-      if (!dragRef.current.active || !cardRef.current) return;
-      const dx = me.clientX - dragRef.current.mouseX;
-      const dy = me.clientY - dragRef.current.mouseY;
-      const w  = cardRef.current.offsetWidth;
-      const h  = cardRef.current.offsetHeight;
-      posRef.current = {
-        x: Math.min(Math.max(10, dragRef.current.initX + dx), window.innerWidth  - w - 10),
-        y: Math.min(Math.max(60, dragRef.current.initY + dy), window.innerHeight - h - 10),
-      };
-      if (rafRef.current === null) {
-        rafRef.current = requestAnimationFrame(() => {
-          if (cardRef.current) {
-            cardRef.current.style.left  = `${posRef.current.x}px`;
-            cardRef.current.style.top   = `${posRef.current.y}px`;
-            cardRef.current.style.right = "auto";
-          }
-          rafRef.current = null;
-        });
+  const handlePointerMove = (e: React.PointerEvent) => {
+    if (!dragRef.current.active) return;
+    const dx = e.clientX - dragRef.current.mouseX;
+    const dy = e.clientY - dragRef.current.mouseY;
+    posRef.current = {
+      x: Math.max(0, Math.min(window.innerWidth - 100, dragRef.current.initX + dx)),
+      y: Math.max(0, Math.min(window.innerHeight - 60, dragRef.current.initY + dy)),
+    };
+    if (rafRef.current) cancelAnimationFrame(rafRef.current);
+    rafRef.current = requestAnimationFrame(() => {
+      if (cardRef.current) {
+        cardRef.current.style.left = `${posRef.current.x}px`;
+        cardRef.current.style.top = `${posRef.current.y}px`;
       }
-    };
+    });
+  };
 
-    const onUp = (ue: PointerEvent) => {
-      dragRef.current.active = false;
-      if (rafRef.current !== null) { cancelAnimationFrame(rafRef.current); rafRef.current = null; }
-      try { el.releasePointerCapture(ue.pointerId); } catch { /* ignore */ }
-      setPositioned(true);
-      window.removeEventListener("pointermove", onMove);
-      window.removeEventListener("pointerup",   onUp);
-      window.removeEventListener("pointercancel", onUp);
-    };
-
-    window.addEventListener("pointermove", onMove, { passive: true });
-    window.addEventListener("pointerup",   onUp);
-    window.addEventListener("pointercancel", onUp);
+  const handlePointerUp = (e: React.PointerEvent) => {
+    if (!dragRef.current.active) return;
+    dragRef.current.active = false;
+    try {
+      (e.target as HTMLElement).releasePointerCapture(e.pointerId);
+    } catch {
+      /* ignore */
+    }
   };
 
   if (!satellite) return null;
 
-  // Swath default width
   const defaultSwathKm = Math.round(
-    Math.min(3000, Math.max(50,
-      satellite.altitudeKm *
-      Math.tan(((satellite.sensor?.fovDeg ?? satellite.camera?.fovDeg ?? 25) * Math.PI) / 360) * 2
-    ))
+    Math.min(
+      Math.max(
+        satellite.altitudeKm * Math.tan((((satellite.camera?.fovDeg ?? 30) / 2) * Math.PI) / 180),
+        30
+      ) * 2,
+      1200
+    )
   );
   const swathKm = satellite.swathWidthKm ?? defaultSwathKm;
 
@@ -341,58 +402,82 @@ export default function SatelliteInfoPanel({
     <Box
       ref={cardRef}
       sx={{
-        position:   "fixed",
-        top:        positioned ? undefined : "76px",
-        right:      positioned ? undefined : "20px",
-        width:      340,
-        maxHeight:  isMinimized ? "none" : "calc(100vh - 112px)",
-        display:    "flex",
+        position: "fixed",
+        top: positioned ? undefined : "80px",
+        right: positioned ? undefined : "24px",
+        width: 350,
+        maxHeight: isMinimized ? "none" : "calc(100vh - 120px)",
+        display: "flex",
         flexDirection: "column",
-        zIndex:     1200,
-        background: C.bg,
-        border:     `1px solid ${C.border}`,
-        borderRadius: "4px",
-        boxShadow:  isMinimized ? "0 4px 16px rgba(0,0,0,0.5)" : "0 8px 32px rgba(0,0,0,0.6)",
+        zIndex: 1200,
+        bgcolor: C.bg,
+        backdropFilter: "blur(18px) saturate(180%)",
+        border: `1px solid ${C.border}`,
+        borderRadius: "14px",
+        boxShadow: "0 16px 40px rgba(0, 0, 0, 0.65), 0 0 1px rgba(255, 255, 255, 0.2)",
         userSelect: "none",
         willChange: "top, left",
-        overflow:   "hidden",
-        transition: "box-shadow 0.15s ease",
+        overflow: "hidden",
+        transition: "box-shadow 0.2s ease",
       }}
     >
       {/* ── Header ─────────────────────────────────────────────────────────── */}
       <Box
         onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
+        onPointerUp={handlePointerUp}
         onDoubleClick={handleToggleMinimize}
         sx={{
-          display:      "flex",
-          alignItems:   "center",
-          gap:          1,
-          px:           1.5,
-          py:           1,
-          borderBottom: isMinimized ? "none" : `1px solid ${C.border}`,
-          background:   C.surface,
-          cursor:       "grab",
-          "&:active":   { cursor: "grabbing" },
-          touchAction:  "none",
-          flexShrink:   0,
+          display: "flex",
+          alignItems: "center",
+          gap: 1,
+          px: 1.75,
+          py: 1.2,
+          borderBottom: isMinimized ? "none" : `1px solid rgba(255, 255, 255, 0.08)`,
+          bgcolor: C.surface,
+          cursor: "grab",
+          "&:active": { cursor: "grabbing" },
+          touchAction: "none",
+          flexShrink: 0,
         }}
       >
-        <DragIndicatorIcon sx={{ fontSize: 16, color: C.border, mr: 0.25 }} />
+        <DragIndicatorIcon sx={{ fontSize: 18, color: "rgba(255, 255, 255, 0.3)", mr: -0.25 }} />
+
+        {/* Orbit indicator glow dot */}
+        <Box
+          sx={{
+            width: 8,
+            height: 8,
+            borderRadius: "50%",
+            bgcolor: C.accent,
+            boxShadow: `0 0 8px ${C.accent}`,
+            flexShrink: 0,
+          }}
+        />
 
         {/* Name + type */}
         <Box sx={{ flex: 1, minWidth: 0 }}>
           <Typography
-            sx={{ fontSize: "0.9rem", fontWeight: 600, color: C.value, lineHeight: 1.3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
+            sx={{
+              fontSize: "0.92rem",
+              fontWeight: 700,
+              color: "#f8fafc",
+              lineHeight: 1.25,
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+              whiteSpace: "nowrap",
+              letterSpacing: "-0.01em",
+            }}
           >
             {satellite.name}
           </Typography>
-          <Typography sx={{ fontSize: "0.72rem", color: C.label, lineHeight: 1.3 }}>
+          <Typography sx={{ fontSize: "0.7rem", color: C.label, lineHeight: 1.2 }}>
             {satellite.type ?? "Satellite"}
           </Typography>
         </Box>
 
         {/* Window controls: Play/Pause, Minimize/Restore & Close */}
-        <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
+        <Box sx={{ display: "flex", alignItems: "center", gap: 0.6 }}>
           {onTogglePlayPause && (
             <Tooltip title={isPlaying ? "Pause simulation" : "Resume simulation"}>
               <IconButton
@@ -403,20 +488,16 @@ export default function SatelliteInfoPanel({
                 sx={{
                   color: isPlaying ? C.accent : C.label,
                   bgcolor: isPlaying ? "rgba(56, 189, 248, 0.12)" : "rgba(255, 255, 255, 0.04)",
-                  border: `1px solid ${isPlaying ? "rgba(56, 189, 248, 0.35)" : C.border}`,
-                  borderRadius: "3px",
-                  p: "3px",
+                  border: `1px solid ${isPlaying ? "rgba(56, 189, 248, 0.4)" : "rgba(255, 255, 255, 0.1)"}`,
+                  borderRadius: "6px",
+                  p: 0.5,
                   "&:hover": {
-                    bgcolor: isPlaying ? "rgba(56, 189, 248, 0.22)" : "rgba(255, 255, 255, 0.08)",
+                    bgcolor: isPlaying ? "rgba(56, 189, 248, 0.22)" : "rgba(255, 255, 255, 0.1)",
                     color: isPlaying ? "#7dd3fc" : C.value,
                   },
                 }}
               >
-                {isPlaying ? (
-                  <PauseIcon sx={{ fontSize: 15 }} />
-                ) : (
-                  <PlayArrowIcon sx={{ fontSize: 15 }} />
-                )}
+                {isPlaying ? <PauseIcon sx={{ fontSize: 16 }} /> : <PlayArrowIcon sx={{ fontSize: 16 }} />}
               </IconButton>
             </Tooltip>
           )}
@@ -429,15 +510,14 @@ export default function SatelliteInfoPanel({
               aria-label={isMinimized ? "Restore panel" : "Minimize panel"}
               sx={{
                 color: C.label,
-                "&:hover": { color: C.value, backgroundColor: "rgba(255,255,255,0.06)" },
-                p: "4px",
+                bgcolor: "rgba(255, 255, 255, 0.04)",
+                border: "1px solid rgba(255, 255, 255, 0.08)",
+                borderRadius: "6px",
+                p: 0.5,
+                "&:hover": { color: C.value, bgcolor: "rgba(255, 255, 255, 0.1)" },
               }}
             >
-              {isMinimized ? (
-                <CropSquareIcon sx={{ fontSize: 14 }} />
-              ) : (
-                <RemoveIcon sx={{ fontSize: 16 }} />
-              )}
+              {isMinimized ? <CropSquareIcon sx={{ fontSize: 15 }} /> : <RemoveIcon sx={{ fontSize: 16 }} />}
             </IconButton>
           </Tooltip>
 
@@ -449,8 +529,11 @@ export default function SatelliteInfoPanel({
               aria-label="Close panel"
               sx={{
                 color: C.label,
-                "&:hover": { color: C.value, backgroundColor: "rgba(255,255,255,0.06)" },
-                p: "4px",
+                bgcolor: "rgba(255, 255, 255, 0.04)",
+                border: "1px solid rgba(255, 255, 255, 0.08)",
+                borderRadius: "6px",
+                p: 0.5,
+                "&:hover": { color: "#f87171", bgcolor: "rgba(239, 68, 68, 0.15)", borderColor: "rgba(239, 68, 68, 0.3)" },
               }}
             >
               <CloseIcon sx={{ fontSize: 16 }} />
@@ -463,36 +546,52 @@ export default function SatelliteInfoPanel({
       <Box
         onPointerDown={(e) => e.stopPropagation()}
         sx={{
-          display:       isMinimized ? "none" : "block",
-          overflowY:     "auto",
-          flexGrow:      1,
-          minHeight:     0,
-          userSelect:    "text",
+          display: isMinimized ? "none" : "flex",
+          flexDirection: "column",
+          gap: 1.5,
+          p: 1.75,
+          overflowY: "auto",
+          flexGrow: 1,
+          minHeight: 0,
+          userSelect: "text",
           scrollbarWidth: "thin",
-          scrollbarColor: `${C.border} ${C.bg}`,
-          "&::-webkit-scrollbar":       { width: "5px" },
-          "&::-webkit-scrollbar-track": { background: C.bg },
-          "&::-webkit-scrollbar-thumb": { background: C.border, borderRadius: "2px" },
+          scrollbarColor: `rgba(255, 255, 255, 0.15) transparent`,
+          "&::-webkit-scrollbar": { width: "5px" },
+          "&::-webkit-scrollbar-track": { background: "transparent" },
+          "&::-webkit-scrollbar-thumb": { background: "rgba(255, 255, 255, 0.15)", borderRadius: "3px" },
         }}
       >
-        {/* ── Orbital Parameters ──────────────────────────────────────────── */}
-        <Box sx={{ px: 2, pt: 1.5, pb: 1.25 }}>
-          <SectionLabel>Orbital Parameters</SectionLabel>
-          <Box>
-            <ParamRow label="Altitude"        value={`${satellite.altitudeKm.toLocaleString()} km`} />
-            <ParamRow label="Inclination"      value={`${satellite.inclinationDeg}°`} />
-            <ParamRow label="Orbital Period"   value={`${satellite.periodSec} s`} />
+        {/* ── 1. Orbital Parameters ────────────────────────────────────────── */}
+        <Box>
+          <SectionHeader
+            icon={<PublicOutlinedIcon sx={{ fontSize: 15 }} />}
+            title="Orbital Parameters"
+          />
+          <Box
+            sx={{
+              p: 1.25,
+              borderRadius: "10px",
+              bgcolor: C.cardBg,
+              border: `1px solid ${C.subBorder}`,
+            }}
+          >
+            <ParamRow label="Altitude" value={`${satellite.altitudeKm.toLocaleString()} km`} />
+            <ParamRow label="Inclination" value={`${satellite.inclinationDeg}°`} />
+            <ParamRow label="Orbital Period" value={`${satellite.periodSec} s`} />
             <ParamRow label="Speed Multiplier" value={`${satellite.speedMultiplier}×`} />
           </Box>
         </Box>
 
-        <Divider sx={{ borderColor: C.border }} />
+        <Divider sx={{ borderColor: "rgba(255, 255, 255, 0.08)" }} />
 
-        {/* ── Coverage ────────────────────────────────────────────────────── */}
-        <Box sx={{ px: 2, pt: 1.25, pb: 1.25, display: "flex", flexDirection: "column", gap: 1 }}>
-          <SectionLabel>Coverage</SectionLabel>
+        {/* ── 2. Coverage ─────────────────────────────────────────────────── */}
+        <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
+          <SectionHeader
+            icon={<TimelineIcon sx={{ fontSize: 15 }} />}
+            title="Coverage"
+          />
 
-          <ToggleRow
+          <ToggleCardRow
             label="Orbit Path"
             description="Orbital trajectory line in space"
             checked={Boolean(satellite.showOrbit)}
@@ -500,7 +599,7 @@ export default function SatelliteInfoPanel({
             onChange={(v) => onUpdateSatellite?.(satellite.id, { showOrbit: v })}
           />
 
-          <ToggleRow
+          <ToggleCardRow
             label="Ground Track"
             description="Project orbit onto Earth surface"
             checked={Boolean(satellite.showGroundTrack)}
@@ -508,15 +607,27 @@ export default function SatelliteInfoPanel({
             onChange={(v) => onUpdateSatellite?.(satellite.id, { showGroundTrack: v })}
           />
 
-          <ToggleRow
+          <ToggleCardRow
             label="Ground Swath"
             description="Coverage corridor along orbital track"
             checked={Boolean(satellite.showSwath)}
+            accentColor={C.accent}
             onChange={(v) => onUpdateSatellite?.(satellite.id, { showSwath: v })}
           />
 
           {satellite.showSwath && (
-            <Box sx={{ display: "flex", flexDirection: "column", gap: 0.5 }}>
+            <Box
+              sx={{
+                p: 1.25,
+                borderRadius: "8px",
+                bgcolor: "rgba(56, 189, 248, 0.04)",
+                border: "1px solid rgba(56, 189, 248, 0.2)",
+                display: "flex",
+                flexDirection: "column",
+                gap: 0.75,
+                mt: 0.25,
+              }}
+            >
               <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                 <Typography sx={{ fontSize: "0.78rem", color: C.label }}>Swath Width</Typography>
                 <NumberInput
@@ -542,15 +653,27 @@ export default function SatelliteInfoPanel({
           )}
         </Box>
 
-        <Divider sx={{ borderColor: C.border }} />
+        <Divider sx={{ borderColor: "rgba(255, 255, 255, 0.08)" }} />
 
-        {/* ── Attachments ─────────────────────────────────────────────────── */}
-        <Box sx={{ px: 2, pt: 1.25, pb: 1.5, display: "flex", flexDirection: "column", gap: 1.5 }}>
-          <SectionLabel>Attachments</SectionLabel>
+        {/* ── 3. Attachments ──────────────────────────────────────────────── */}
+        <Box sx={{ display: "flex", flexDirection: "column", gap: 1.25 }}>
+          <SectionHeader
+            icon={<SensorsIcon sx={{ fontSize: 15 }} />}
+            title="Attachments"
+          />
 
           {/* Camera */}
-          <Box>
-            <SubsystemHeader
+          <Box
+            sx={{
+              p: 1.25,
+              borderRadius: "10px",
+              bgcolor: satellite.camera?.isActive ? "rgba(56, 189, 248, 0.04)" : C.cardBg,
+              border: `1px solid ${satellite.camera?.isActive ? "rgba(56, 189, 248, 0.25)" : C.subBorder}`,
+              transition: "all 0.15s ease",
+            }}
+          >
+            <SubsystemCardHeader
+              icon={<VideocamOutlinedIcon sx={{ fontSize: 16 }} />}
               label="Camera (Torch Light)"
               hasDevice={Boolean(satellite.camera)}
               checked={Boolean(satellite.camera?.isActive)}
@@ -559,9 +682,9 @@ export default function SatelliteInfoPanel({
               }
             />
             {satellite.camera && (
-              <Box sx={{ display: "flex", flexDirection: "column", gap: 0.75 }}>
+              <Box sx={{ display: "flex", flexDirection: "column", gap: 0.5, mt: 0.5 }}>
                 <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                  <Typography sx={{ fontSize: "0.72rem", color: C.label }}>Field of View</Typography>
+                  <Typography sx={{ fontSize: "0.74rem", color: C.label }}>Field of View</Typography>
                   <NumberInput
                     value={satellite.camera.fovDeg ?? 30}
                     unit="°"
@@ -592,11 +715,18 @@ export default function SatelliteInfoPanel({
             )}
           </Box>
 
-          <Divider sx={{ borderColor: C.border }} />
-
           {/* Sensor */}
-          <Box>
-            <SubsystemHeader
+          <Box
+            sx={{
+              p: 1.25,
+              borderRadius: "10px",
+              bgcolor: satellite.sensor?.isActive ? "rgba(56, 189, 248, 0.04)" : C.cardBg,
+              border: `1px solid ${satellite.sensor?.isActive ? "rgba(56, 189, 248, 0.25)" : C.subBorder}`,
+              transition: "all 0.15s ease",
+            }}
+          >
+            <SubsystemCardHeader
+              icon={<SensorsIcon sx={{ fontSize: 16 }} />}
               label="Sensor (Scanner Cone)"
               hasDevice={Boolean(satellite.sensor)}
               checked={Boolean(satellite.sensor?.isActive)}
@@ -605,11 +735,11 @@ export default function SatelliteInfoPanel({
               }
             />
             {satellite.sensor && (
-              <Box sx={{ display: "flex", flexDirection: "column", gap: 1.5 }}>
+              <Box sx={{ display: "flex", flexDirection: "column", gap: 1, mt: 0.5 }}>
                 {/* FOV */}
-                <Box sx={{ display: "flex", flexDirection: "column", gap: 0.75 }}>
+                <Box sx={{ display: "flex", flexDirection: "column", gap: 0.5 }}>
                   <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                    <Typography sx={{ fontSize: "0.72rem", color: C.label }}>Field of View</Typography>
+                    <Typography sx={{ fontSize: "0.74rem", color: C.label }}>Field of View</Typography>
                     <NumberInput
                       value={satellite.sensor.fovDeg ?? 60}
                       unit="°"
@@ -639,9 +769,9 @@ export default function SatelliteInfoPanel({
                 </Box>
 
                 {/* Inclination */}
-                <Box sx={{ display: "flex", flexDirection: "column", gap: 0.75 }}>
+                <Box sx={{ display: "flex", flexDirection: "column", gap: 0.5 }}>
                   <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                    <Typography sx={{ fontSize: "0.72rem", color: C.label }}>Inclination</Typography>
+                    <Typography sx={{ fontSize: "0.74rem", color: C.label }}>Inclination</Typography>
                     <NumberInput
                       value={satellite.sensor.inclinationDeg ?? satellite.sensor.inclinationDegree ?? 0}
                       unit="°"
@@ -677,11 +807,18 @@ export default function SatelliteInfoPanel({
             )}
           </Box>
 
-          <Divider sx={{ borderColor: C.border }} />
-
           {/* Communication */}
-          <Box>
-            <SubsystemHeader
+          <Box
+            sx={{
+              p: 1.25,
+              borderRadius: "10px",
+              bgcolor: satellite.communication?.isActive ? "rgba(56, 189, 248, 0.04)" : C.cardBg,
+              border: `1px solid ${satellite.communication?.isActive ? "rgba(56, 189, 248, 0.25)" : C.subBorder}`,
+              transition: "all 0.15s ease",
+            }}
+          >
+            <SubsystemCardHeader
+              icon={<SettingsInputAntennaIcon sx={{ fontSize: 16 }} />}
               label="Communication"
               hasDevice={Boolean(satellite.communication)}
               checked={Boolean(satellite.communication?.isActive)}
@@ -692,8 +829,8 @@ export default function SatelliteInfoPanel({
               }
             />
             {satellite.communication?.targetStation ? (
-              <Box sx={{ display: "flex", flexDirection: "column", gap: 0.75 }}>
-                <Typography sx={{ fontSize: "0.75rem", color: C.label, mb: 0.5 }}>
+              <Box sx={{ display: "flex", flexDirection: "column", gap: 0.75, mt: 0.5 }}>
+                <Typography sx={{ fontSize: "0.74rem", color: C.label }}>
                   Target Ground Station
                 </Typography>
                 <Box sx={{ display: "flex", gap: 1 }}>
@@ -704,21 +841,21 @@ export default function SatelliteInfoPanel({
                       display: "flex",
                       alignItems: "center",
                       gap: 0.5,
-                      background: C.bg,
+                      bgcolor: "rgba(255, 255, 255, 0.04)",
                       border: `1px solid ${C.border}`,
-                      borderRadius: "3px",
+                      borderRadius: "6px",
                       px: 1,
-                      py: "3px",
+                      py: 0.35,
                       "&:focus-within": { borderColor: C.accent },
                       transition: "border-color 0.15s",
                     }}
                   >
-                    <Typography sx={{ fontSize: "0.68rem", color: C.label }}>Lon</Typography>
+                    <Typography sx={{ fontSize: "0.68rem", color: C.label, fontWeight: 600 }}>Lon</Typography>
                     <InputBase
                       type="number"
                       value={satellite.communication.targetStation[0]}
                       onChange={(e) => {
-                        const v   = parseFloat(e.target.value) || 0;
+                        const v = parseFloat(e.target.value) || 0;
                         const lat = satellite.communication!.targetStation![1];
                         onUpdateSatellite?.(satellite.id, {
                           communication: { ...satellite.communication!, targetStation: [v, lat] },
@@ -727,9 +864,9 @@ export default function SatelliteInfoPanel({
                       inputProps={{ min: -180, max: 180, step: 0.1 }}
                       sx={{
                         flex: 1,
-                        fontSize: "0.75rem",
+                        fontSize: "0.78rem",
                         color: C.value,
-                        fontFamily: "monospace",
+                        fontFamily: "ui-monospace, monospace",
                         "& input": {
                           p: 0,
                           textAlign: "right",
@@ -751,21 +888,21 @@ export default function SatelliteInfoPanel({
                       display: "flex",
                       alignItems: "center",
                       gap: 0.5,
-                      background: C.bg,
+                      bgcolor: "rgba(255, 255, 255, 0.04)",
                       border: `1px solid ${C.border}`,
-                      borderRadius: "3px",
+                      borderRadius: "6px",
                       px: 1,
-                      py: "3px",
+                      py: 0.35,
                       "&:focus-within": { borderColor: C.accent },
                       transition: "border-color 0.15s",
                     }}
                   >
-                    <Typography sx={{ fontSize: "0.68rem", color: C.label }}>Lat</Typography>
+                    <Typography sx={{ fontSize: "0.68rem", color: C.label, fontWeight: 600 }}>Lat</Typography>
                     <InputBase
                       type="number"
                       value={satellite.communication.targetStation[1]}
                       onChange={(e) => {
-                        const v   = parseFloat(e.target.value) || 0;
+                        const v = parseFloat(e.target.value) || 0;
                         const lon = satellite.communication!.targetStation![0];
                         onUpdateSatellite?.(satellite.id, {
                           communication: { ...satellite.communication!, targetStation: [lon, v] },
@@ -774,9 +911,9 @@ export default function SatelliteInfoPanel({
                       inputProps={{ min: -90, max: 90, step: 0.1 }}
                       sx={{
                         flex: 1,
-                        fontSize: "0.75rem",
+                        fontSize: "0.78rem",
                         color: C.value,
-                        fontFamily: "monospace",
+                        fontFamily: "ui-monospace, monospace",
                         "& input": {
                           p: 0,
                           textAlign: "right",
@@ -793,9 +930,9 @@ export default function SatelliteInfoPanel({
                 </Box>
               </Box>
             ) : satellite.communication ? (
-                  <Typography sx={{ fontSize: "0.72rem", color: C.label, fontStyle: "italic", mt: 0.5 }}>
-                    No target station assigned
-                  </Typography>
+              <Typography sx={{ fontSize: "0.72rem", color: C.label, fontStyle: "italic", mt: 0.5 }}>
+                No target station assigned
+              </Typography>
             ) : null}
           </Box>
         </Box>
