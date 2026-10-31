@@ -20,6 +20,8 @@ interface SidebarProps {
   onOpenInfo: (sat: SatelliteData) => void;
   onSelectAll: () => void;
   onClearAll: () => void;
+  defaultExpanded?: Record<string, boolean> | boolean;
+  ModalProps?: React.ComponentProps<typeof Drawer>["ModalProps"];
 }
 
 const DRAWER_WIDTH = 320;
@@ -35,8 +37,15 @@ export default function Sidebar({
   onOpenInfo,
   onSelectAll,
   onClearAll,
+  defaultExpanded,
+  ModalProps,
 }: SidebarProps) {
-  const [expanded, setExpanded] = useState<Record<string, boolean>>({});
+  const [expanded, setExpanded] = useState<Record<string, boolean>>(() => {
+    if (typeof defaultExpanded === "boolean") {
+      return defaultExpanded ? Object.fromEntries(satellites.map((s) => [s.id, true])) : {};
+    }
+    return defaultExpanded || {};
+  });
 
   const toggleExpand = (id: string) => {
     setExpanded(prev => ({ ...prev, [id]: !prev[id] }));
@@ -47,6 +56,7 @@ export default function Sidebar({
       anchor="left"
       open={open}
       onClose={onClose}
+      ModalProps={ModalProps}
       sx={{
         "& .MuiDrawer-paper": {
           width: DRAWER_WIDTH,

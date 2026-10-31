@@ -7,7 +7,9 @@
     "dev": "npm run copy-cesium && next dev",
     "build": "npm run copy-cesium && next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "pretest": "tsc -p tsconfig.json --noEmit false --outDir test-dist-cjs --module commonjs --moduleResolution node --jsx react-jsx",
+    "test": "npm run pretest && node --test tests/*.test.js"
   },
   "dependencies": {
     "@emotion/cache": "^11.14.0",

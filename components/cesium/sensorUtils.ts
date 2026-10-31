@@ -85,6 +85,9 @@ export function computeCylinderOrientation(
   result = new Cesium.Quaternion()
 ): Cesium.Quaternion {
   const dir = Cesium.Cartesian3.subtract(satPos, groundPos, new Cesium.Cartesian3());
+  if (Cesium.Cartesian3.magnitudeSquared(dir) < 1e-8) {
+    return Cesium.Quaternion.clone(Cesium.Quaternion.IDENTITY, result);
+  }
   Cesium.Cartesian3.normalize(dir, dir);
 
   const dot = Cesium.Cartesian3.dot(UNIT_Z, dir);

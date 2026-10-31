@@ -6,7 +6,8 @@ interface UseFetchOptions {
 }
 
 export function useFetch(options?: UseFetchOptions) {
-  const baseUrl = options?.baseUrl || process.env.NEXT_PUBLIC_API_BASE_URL;
+  const rawBase = options?.baseUrl ?? process.env.NEXT_PUBLIC_API_BASE_URL ?? "";
+  const baseUrl = rawBase.trim().replace(/\/+$/, "");
   const defaultHeaders = {
     "Content-Type": "application/json",
     ...options?.headers,
@@ -29,7 +30,9 @@ export function useFetch(options?: UseFetchOptions) {
           config.body = JSON.stringify(body);
         }
 
-        const response = await fetch(`${baseUrl}${endpoint}`, config);
+        const cleanEndpoint = endpoint.startsWith("/") ? endpoint : `/${endpoint}`;
+        const url = baseUrl ? `${baseUrl}${cleanEndpoint}` : cleanEndpoint;
+        const response = await fetch(url, config);
         if (!response.ok) {
           throw new Error(`API Error: ${response.status} ${response.statusText}`);
         }

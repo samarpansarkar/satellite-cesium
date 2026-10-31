@@ -51,11 +51,16 @@ export default function TimeControlBar({
   simulationSpeed,
   onSimulationSpeedChange,
 }: Props) {
-  const [epoch] = useState(() => Date.now());
+  const [epoch, setEpoch] = useState(() => Date.now());
   const [disp, setDisp] = useState(0);
   const [dragging, setDragging] = useState(false);
   const trackRef = useRef<HTMLDivElement>(null);
   const draggingRef = useRef(false);
+
+  // Sync epoch and clock on client mount
+  useEffect(() => {
+    setEpoch(Date.now());
+  }, []);
 
   // Sync display from clock at 80 ms
   useEffect(() => {
@@ -242,10 +247,10 @@ export default function TimeControlBar({
       <div className="tcb-sep" />
 
       {/* ── Clocks ─────────────────────────────────────────────────────────── */}
-      <div className="tcb-clocks">
-        <span className="tcb-elapsed">{fmtElapsed(disp)}</span>
+      <div className="tcb-clocks" suppressHydrationWarning>
+        <span className="tcb-elapsed" suppressHydrationWarning>{fmtElapsed(disp)}</span>
         <span className="tcb-dot">·</span>
-        <span className="tcb-utc">{fmtUtc(epoch, disp)}</span>
+        <span className="tcb-utc" suppressHydrationWarning>{fmtUtc(epoch, disp)}</span>
       </div>
     </div>
   );
