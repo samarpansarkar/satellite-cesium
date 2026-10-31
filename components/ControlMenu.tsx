@@ -47,8 +47,11 @@ import SearchIcon from "@mui/icons-material/Search";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import ExpandLessIcon from "@mui/icons-material/ExpandLess";
 import InfoIcon from "@mui/icons-material/Info";
+import AccessTimeOutlinedIcon from "@mui/icons-material/AccessTimeOutlined";
+import CheckIcon from "@mui/icons-material/Check";
 import * as Cesium from "cesium";
 import type { SatelliteData } from "@/lib/types";
+import { formatTimeWithZone } from "./TimeControlBar";
 
 // ─── Custom Icons Matching Design ─────────────────────────────────────────────
 
@@ -98,7 +101,7 @@ function TelescopeSkyIcon() {
 
 // ─── Types & Props ────────────────────────────────────────────────────────────
 
-type ActiveSubMenu =
+export type ActiveSubMenu =
   | "bookmarks"
   | "satellites"
   | "components"
@@ -107,12 +110,18 @@ type ActiveSubMenu =
   | "globe"
   | "sky"
   | "graphics"
+  | "timeline"
   | "about"
   | null;
 
-interface ControlMenuProps {
+export interface ControlMenuProps {
   initialSubMenu?: ActiveSubMenu;
   defaultExpandedSats?: Record<string, boolean>;
+  // Timeline & Timezone Settings
+  timeZone?: string;
+  onTimeZoneChange?: (tz: string) => void;
+  timeFormat24h?: boolean;
+  onTimeFormat24hChange?: (is24h: boolean) => void;
   // Satellites Panel Management
   availableNames?: string[];
   selectedNames?: string[];
@@ -157,6 +166,24 @@ const BOOKMARKS = [
   { id: "eurasia", label: "Eurasia & Africa", desc: "Eastern Hemisphere coverage", lat: 25, lon: 45, height: 16_000_000 },
 ];
 
+// Preset Global Timezones
+export const POPULAR_TIMEZONES = [
+  { id: "UTC", label: "UTC", city: "Universal", offset: "UTC+00:00", desc: "Coordinated Universal Time (Default)" },
+  { id: "Asia/Kolkata", label: "IST", city: "India / New Delhi", offset: "UTC+05:30", desc: "Indian Standard Time" },
+  { id: "America/New_York", label: "EST / EDT", city: "New York / Eastern", offset: "UTC-05:00", desc: "Eastern Time (US & Canada)" },
+  { id: "America/Chicago", label: "CST / CDT", city: "Chicago / Central", offset: "UTC-06:00", desc: "Central Time" },
+  { id: "America/Denver", label: "MST / MDT", city: "Denver / Mountain", offset: "UTC-07:00", desc: "Mountain Time" },
+  { id: "America/Los_Angeles", label: "PST / PDT", city: "Los Angeles / Pacific", offset: "UTC-08:00", desc: "Pacific Time" },
+  { id: "Europe/London", label: "GMT / BST", city: "London / UK", offset: "UTC+00:00", desc: "Greenwich Mean Time" },
+  { id: "Europe/Paris", label: "CET / CEST", city: "Paris / Berlin / Rome", offset: "UTC+01:00", desc: "Central European Time" },
+  { id: "Asia/Dubai", label: "GST", city: "Dubai / Gulf", offset: "UTC+04:00", desc: "Gulf Standard Time" },
+  { id: "Asia/Singapore", label: "SGT", city: "Singapore", offset: "UTC+08:00", desc: "Singapore Standard Time" },
+  { id: "Asia/Tokyo", label: "JST", city: "Tokyo / Japan", offset: "UTC+09:00", desc: "Japan Standard Time" },
+  { id: "Australia/Sydney", label: "AEST / AEDT", city: "Sydney / Melbourne", offset: "UTC+10:00", desc: "Australian Eastern Time" },
+  { id: "Pacific/Auckland", label: "NZST / NZDT", city: "Auckland / New Zealand", offset: "UTC+12:00", desc: "New Zealand Time" },
+  { id: "Pacific/Honolulu", label: "HST", city: "Honolulu / Hawaii", offset: "UTC-10:00", desc: "Hawaii Standard Time" },
+];
+
 export default function ControlMenu({
   availableNames = [],
   selectedNames = [],
@@ -179,11 +206,29 @@ export default function ControlMenu({
   onTogglePlayPause,
   initialSubMenu = null,
   defaultExpandedSats = {},
+  timeZone = "UTC",
+  onTimeZoneChange,
+  timeFormat24h = true,
+  onTimeFormat24hChange,
 }: ControlMenuProps) {
   const [isExpanded, setIsExpanded] = useState<boolean>(true);
   const [activeSubMenu, setActiveSubMenu] = useState<ActiveSubMenu>(initialSubMenu);
   const [satelliteSearch, setSatelliteSearch] = useState<string>("");
   const [expandedSats, setExpandedSats] = useState<Record<string, boolean>>(defaultExpandedSats);
+  const [timezoneSearch, setTimezoneSearch] = useState<string>("");
+
+  const allSupportedTimezones = useMemo(() => {
+    if (typeof Intl !== "undefined" && typeof Intl.supportedValuesOf === "function") {
+      return Intl.supportedValuesOf("timeZone");
+    }
+    return POPULAR_TIMEZONES.map((t) => t.id);
+  }, []);
+
+  const filteredTimezones = useMemo(() => {
+    if (!timezoneSearch.trim()) return [];
+    const q = timezoneSearch.toLowerCase().trim();
+    return allSupportedTimezones.filter((tz) => tz.toLowerCase().includes(q));
+  }, [allSupportedTimezones, timezoneSearch]);
 
   const toggleSatExpand = (id: string) => {
     setExpandedSats((prev) => ({ ...prev, [id]: !prev[id] }));
@@ -386,7 +431,16 @@ export default function ControlMenu({
               onClick={() => handleMenuItemClick("graphics")}
             />
 
-            {/* 9. About */}
+            {/* 9. Timeline Settings */}
+            <MenuItemRow
+              icon={<AccessTimeOutlinedIcon sx={{ fontSize: 20 }} />}
+              label="Timeline"
+              badge={timeZone === "UTC" ? "UTC" : timeZone === "Asia/Kolkata" ? "IST" : "Custom"}
+              isActive={activeSubMenu === "timeline"}
+              onClick={() => handleMenuItemClick("timeline")}
+            />
+
+            {/* 10. About */}
             <MenuItemRow
               icon={<InfoOutlinedIcon sx={{ fontSize: 20 }} />}
               label="About"
@@ -405,7 +459,7 @@ export default function ControlMenu({
             top: 16,
             left: 224,
             zIndex: 1060,
-            width: activeSubMenu === "satellites" ? 360 : 320,
+            width: activeSubMenu === "satellites" ? 360 : activeSubMenu === "timeline" ? 370 : 320,
             maxHeight: "calc(100vh - 120px)",
             bgcolor: "rgba(18, 19, 24, 0.94)",
             backdropFilter: "blur(20px)",
@@ -1024,7 +1078,248 @@ export default function ControlMenu({
               </Box>
             )}
 
-            {/* ── 9. About ───────────────────────────────────────────────── */}
+            {/* ── 9. Timeline Settings ─────────────────────────────────────── */}
+            {activeSubMenu === "timeline" && (
+              <Box sx={{ display: "flex", flexDirection: "column", gap: 1.5 }}>
+                <Box>
+                  <Typography sx={{ fontWeight: 600, fontSize: "0.95rem", color: "#f8fafc" }}>
+                    Timeline Settings
+                  </Typography>
+                  <Typography variant="caption" sx={{ color: "#94a3b8" }}>
+                    Configure timeline clock timezone & display format
+                  </Typography>
+                </Box>
+
+                {/* Live Preview Card */}
+                <Box
+                  sx={{
+                    p: 1.5,
+                    borderRadius: "10px",
+                    bgcolor: "rgba(56, 189, 248, 0.06)",
+                    border: "1px solid rgba(56, 189, 248, 0.25)",
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: 0.5,
+                  }}
+                >
+                  <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <Typography sx={{ fontSize: "0.68rem", fontWeight: 700, color: "#38bdf8", textTransform: "uppercase", letterSpacing: "0.06em" }}>
+                      Active Timezone
+                    </Typography>
+                    <Chip
+                      size="small"
+                      label={timeZone === "UTC" ? "UTC (Default)" : timeZone === "Asia/Kolkata" ? "IST (Indian Standard)" : timeZone}
+                      sx={{
+                        height: 20,
+                        fontSize: "0.68rem",
+                        bgcolor: "rgba(56, 189, 248, 0.15)",
+                        color: "#38bdf8",
+                        fontWeight: 600,
+                        border: "1px solid rgba(56, 189, 248, 0.3)",
+                      }}
+                    />
+                  </Box>
+                  <Typography sx={{ fontFamily: "monospace", fontSize: "1.15rem", fontWeight: 700, color: "#f8fafc", mt: 0.25 }}>
+                    {formatTimeWithZone(Date.now(), 0, timeZone, timeFormat24h).timeStr}
+                  </Typography>
+                  <Typography sx={{ fontSize: "0.72rem", color: "#94a3b8" }}>
+                    {formatTimeWithZone(Date.now(), 0, timeZone, timeFormat24h).dateStr}
+                  </Typography>
+                </Box>
+
+                {/* Primary Presets: UTC & Indian Standard Time */}
+                <Typography sx={{ fontSize: "0.72rem", fontWeight: 700, color: "#cbd5e1", textTransform: "uppercase", letterSpacing: "0.05em", mt: 0.5 }}>
+                  Standard Timezones
+                </Typography>
+                <Box sx={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 1 }}>
+                  {/* UTC Button */}
+                  <Box
+                    onClick={() => onTimeZoneChange?.("UTC")}
+                    sx={{
+                      p: 1.25,
+                      borderRadius: "8px",
+                      cursor: "pointer",
+                      bgcolor: timeZone === "UTC" ? "rgba(56, 189, 248, 0.12)" : "rgba(255, 255, 255, 0.03)",
+                      border: `1px solid ${timeZone === "UTC" ? "#38bdf8" : "rgba(255, 255, 255, 0.08)"}`,
+                      transition: "all 0.15s ease",
+                      "&:hover": { bgcolor: "rgba(56, 189, 248, 0.08)" },
+                    }}
+                  >
+                    <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                      <Typography sx={{ fontSize: "0.82rem", fontWeight: 700, color: timeZone === "UTC" ? "#38bdf8" : "#f1f5f9" }}>
+                        UTC
+                      </Typography>
+                      {timeZone === "UTC" && <CheckIcon sx={{ fontSize: 16, color: "#38bdf8" }} />}
+                    </Box>
+                    <Typography sx={{ fontSize: "0.68rem", color: "#94a3b8" }}>
+                      UTC+00:00 (Universal)
+                    </Typography>
+                    <Typography sx={{ fontSize: "0.62rem", color: "#64748b", fontStyle: "italic", mt: 0.25 }}>
+                      Default baseline
+                    </Typography>
+                  </Box>
+
+                  {/* IST (India) Button */}
+                  <Box
+                    onClick={() => onTimeZoneChange?.("Asia/Kolkata")}
+                    sx={{
+                      p: 1.25,
+                      borderRadius: "8px",
+                      cursor: "pointer",
+                      bgcolor: timeZone === "Asia/Kolkata" ? "rgba(245, 158, 11, 0.15)" : "rgba(255, 255, 255, 0.03)",
+                      border: `1px solid ${timeZone === "Asia/Kolkata" ? "#f59e0b" : "rgba(255, 255, 255, 0.08)"}`,
+                      transition: "all 0.15s ease",
+                      "&:hover": { bgcolor: "rgba(245, 158, 11, 0.1)" },
+                    }}
+                  >
+                    <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                      <Typography sx={{ fontSize: "0.82rem", fontWeight: 700, color: timeZone === "Asia/Kolkata" ? "#f59e0b" : "#f1f5f9" }}>
+                        IST (India)
+                      </Typography>
+                      {timeZone === "Asia/Kolkata" && <CheckIcon sx={{ fontSize: 16, color: "#f59e0b" }} />}
+                    </Box>
+                    <Typography sx={{ fontSize: "0.68rem", color: "#94a3b8" }}>
+                      UTC+05:30 (New Delhi)
+                    </Typography>
+                    <Typography sx={{ fontSize: "0.62rem", color: "#f59e0b", fontStyle: "italic", mt: 0.25 }}>
+                      Indian Standard Time
+                    </Typography>
+                  </Box>
+                </Box>
+
+                {/* Popular Global Zones Chips */}
+                <Typography sx={{ fontSize: "0.72rem", fontWeight: 700, color: "#cbd5e1", textTransform: "uppercase", letterSpacing: "0.05em", mt: 0.5 }}>
+                  World Regions
+                </Typography>
+                <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.75 }}>
+                  {POPULAR_TIMEZONES.filter(t => t.id !== "UTC" && t.id !== "Asia/Kolkata").map((item) => {
+                    const isSelected = timeZone === item.id;
+                    return (
+                      <Chip
+                        key={item.id}
+                        label={`${item.label} (${item.city.split(" / ")[0]})`}
+                        onClick={() => onTimeZoneChange?.(item.id)}
+                        variant={isSelected ? "filled" : "outlined"}
+                        size="small"
+                        sx={{
+                          fontSize: "0.72rem",
+                          bgcolor: isSelected ? "rgba(56, 189, 248, 0.2)" : "rgba(255, 255, 255, 0.03)",
+                          borderColor: isSelected ? "#38bdf8" : "rgba(255, 255, 255, 0.12)",
+                          color: isSelected ? "#38bdf8" : "#cbd5e1",
+                          fontWeight: isSelected ? 600 : 400,
+                          cursor: "pointer",
+                          "&:hover": {
+                            bgcolor: isSelected ? "rgba(56, 189, 248, 0.3)" : "rgba(255, 255, 255, 0.08)",
+                          },
+                        }}
+                      />
+                    );
+                  })}
+                </Box>
+
+                <Divider sx={{ borderColor: "rgba(255, 255, 255, 0.08)", my: 0.5 }} />
+
+                {/* Search Any Timezone */}
+                <Box>
+                  <Typography sx={{ fontSize: "0.72rem", fontWeight: 700, color: "#cbd5e1", textTransform: "uppercase", letterSpacing: "0.05em", mb: 0.75 }}>
+                    Select Any Timezone (400+ IANA)
+                  </Typography>
+                  <Box
+                    sx={{
+                      display: "flex",
+                      alignItems: "center",
+                      bgcolor: "rgba(255, 255, 255, 0.04)",
+                      border: "1px solid rgba(255, 255, 255, 0.12)",
+                      borderRadius: "8px",
+                      px: 1,
+                      py: 0.4,
+                    }}
+                  >
+                    <SearchIcon sx={{ fontSize: 16, color: "#94a3b8", mr: 0.75 }} />
+                    <InputBase
+                      placeholder="Type city or country (e.g. Tokyo, Denver, Cairo...)"
+                      value={timezoneSearch}
+                      onChange={(e) => setTimezoneSearch(e.target.value)}
+                      sx={{ fontSize: "0.8rem", color: "#f8fafc", width: "100%" }}
+                    />
+                    {timezoneSearch && (
+                      <IconButton size="small" onClick={() => setTimezoneSearch("")} sx={{ p: 0.25, color: "#94a3b8" }}>
+                        <CloseIcon sx={{ fontSize: 14 }} />
+                      </IconButton>
+                    )}
+                  </Box>
+
+                  {/* Search Results Dropdown List */}
+                  {timezoneSearch.trim() && (
+                    <Box
+                      sx={{
+                        mt: 0.75,
+                        maxHeight: 140,
+                        overflowY: "auto",
+                        bgcolor: "rgba(15, 20, 28, 0.95)",
+                        border: "1px solid rgba(255, 255, 255, 0.12)",
+                        borderRadius: "8px",
+                        p: 0.5,
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: 0.25,
+                      }}
+                    >
+                      {filteredTimezones.length === 0 ? (
+                        <Typography sx={{ fontSize: "0.75rem", color: "#94a3b8", textAlign: "center", py: 1 }}>
+                          No timezones match &quot;{timezoneSearch}&quot;
+                        </Typography>
+                      ) : (
+                        filteredTimezones.slice(0, 30).map((tz) => {
+                          const isSelected = timeZone === tz;
+                          return (
+                            <Box
+                              key={tz}
+                              onClick={() => {
+                                onTimeZoneChange?.(tz);
+                                setTimezoneSearch("");
+                              }}
+                              sx={{
+                                px: 1,
+                                py: 0.6,
+                                borderRadius: "6px",
+                                cursor: "pointer",
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "space-between",
+                                bgcolor: isSelected ? "rgba(56, 189, 248, 0.15)" : "transparent",
+                                "&:hover": { bgcolor: "rgba(255, 255, 255, 0.08)" },
+                              }}
+                            >
+                              <Typography sx={{ fontSize: "0.76rem", color: isSelected ? "#38bdf8" : "#f1f5f9", fontWeight: isSelected ? 600 : 400 }}>
+                                {tz}
+                              </Typography>
+                              {isSelected && <CheckIcon sx={{ fontSize: 14, color: "#38bdf8" }} />}
+                            </Box>
+                          );
+                        })
+                      )}
+                    </Box>
+                  )}
+                </Box>
+
+                <Divider sx={{ borderColor: "rgba(255, 255, 255, 0.08)", my: 0.5 }} />
+
+                {/* Format Options */}
+                <Typography sx={{ fontSize: "0.72rem", fontWeight: 700, color: "#cbd5e1", textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                  Time Format
+                </Typography>
+                <ControlToggleRow
+                  label="24-Hour Military Format"
+                  description={timeFormat24h ? "17:09:20 (24-hour standard)" : "05:09:20 PM (12-hour AM/PM)"}
+                  checked={timeFormat24h}
+                  onChange={onTimeFormat24hChange || (() => {})}
+                  color="#38bdf8"
+                />
+              </Box>
+            )}
+
+            {/* ── 10. About ───────────────────────────────────────────────── */}
             {activeSubMenu === "about" && (
               <Box sx={{ display: "flex", flexDirection: "column", gap: 1.25 }}>
                 <Typography sx={{ fontSize: "0.95rem", fontWeight: 700, color: "#38bdf8" }}>

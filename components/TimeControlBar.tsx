@@ -27,23 +27,77 @@ interface Props {
   onTogglePlayPause: () => void;
   simulationSpeed: number;
   onSimulationSpeedChange: (s: number) => void;
+  timeZone?: string;
+  onTimeZoneChange?: (tz: string) => void;
+  timeFormat24h?: boolean;
 }
 
-function formatUtc(epoch: number, elapsedSec: number) {
-  const d = new Date(epoch + elapsedSec * 1000);
-  const hh = String(d.getUTCHours()).padStart(2, "0");
-  const mm = String(d.getUTCMinutes()).padStart(2, "0");
-  const ss = String(d.getUTCSeconds()).padStart(2, "0");
+export function getTimezoneOffsetSec(timeZone: string, date: Date = new Date()): number {
+  try {
+    const utcDate = new Date(date.toLocaleString("en-US", { timeZone: "UTC" }));
+    const tzDate = new Date(date.toLocaleString("en-US", { timeZone }));
+    return Math.round((tzDate.getTime() - utcDate.getTime()) / 1000);
+  } catch {
+    return 0;
+  }
+}
 
-  const days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-  const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-  const dayName = days[d.getUTCDay()];
-  const dayNum = d.getUTCDate();
-  const monthName = months[d.getUTCMonth()];
+export function formatTimeWithZone(
+  epoch: number,
+  elapsedSec: number,
+  timeZone: string = "UTC",
+  timeFormat24h: boolean = true
+): { timeStr: string; dateStr: string; tzLabel: string } {
+  if (!epoch) {
+    return {
+      timeStr: timeFormat24h ? "12:00:00" : "12:00:00 PM",
+      dateStr: "Sat 31 Oct UTC",
+      tzLabel: "UTC",
+    };
+  }
+  const date = new Date(epoch + elapsedSec * 1000);
+
+  // Time format
+  const timeFormatter = new Intl.DateTimeFormat("en-US", {
+    timeZone,
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: !timeFormat24h,
+  });
+
+  // Date format
+  const dateFormatter = new Intl.DateTimeFormat("en-US", {
+    timeZone,
+    weekday: "short",
+    day: "numeric",
+    month: "short",
+  });
+
+  const tzFormatter = new Intl.DateTimeFormat("en-US", {
+    timeZone,
+    timeZoneName: "short",
+  });
+
+  let tzLabel = "UTC";
+  try {
+    const parts = tzFormatter.formatToParts(date);
+    tzLabel = parts.find((p) => p.type === "timeZoneName")?.value || timeZone;
+  } catch {
+    tzLabel = timeZone;
+  }
+
+  // Friendly override for well-known zones
+  if (timeZone === "Asia/Kolkata") tzLabel = "IST";
+  if (timeZone === "UTC") tzLabel = "UTC";
+
+  const dateParts = dateFormatter.formatToParts(date);
+  const dp = Object.fromEntries(dateParts.map((p) => [p.type, p.value]));
 
   return {
-    timeStr: `${hh}:${mm}:${ss}`,
-    dateStr: `${dayName} ${dayNum} ${monthName} UTC`,
+    timeStr: timeFormatter.format(date),
+    dateStr: `${dp.weekday} ${dp.day} ${dp.month} ${tzLabel}`,
+    tzLabel,
   };
 }
 
@@ -52,6 +106,9 @@ export default function TimeControlBar({
   onTogglePlayPause,
   simulationSpeed,
   onSimulationSpeedChange,
+  timeZone = "UTC",
+  onTimeZoneChange,
+  timeFormat24h = true,
 }: Props) {
   // Epoch anchor (synced on client mount)
   const [epoch, setEpoch] = useState<number>(0);
@@ -194,11 +251,14 @@ export default function TimeControlBar({
   };
 
   // ── Ruler Geometry Calculation ────────────────────────────────────────────
+  const tzOffsetSec = getTimezoneOffsetSec(timeZone);
   const currentTotalSec = (epoch ? epoch / 1000 : 0) + disp;
+  const localTotalSec = currentTotalSec + tzOffsetSec;
+
   const halfWidth = rulerWidth / 2;
   const visibleSecSpan = halfWidth / PX_PER_SEC + 3600; // Buffer 1 hr each side
-  const startSec = Math.floor((currentTotalSec - visibleSecSpan) / 600) * 600;
-  const endSec = Math.ceil((currentTotalSec + visibleSecSpan) / 600) * 600;
+  const startLocalSec = Math.floor((localTotalSec - visibleSecSpan) / 600) * 600;
+  const endLocalSec = Math.ceil((localTotalSec + visibleSecSpan) / 600) * 600;
 
   const ticks: Array<{
     sec: number;
@@ -207,19 +267,28 @@ export default function TimeControlBar({
     label?: string;
   }> = [];
 
-  for (let s = startSec; s <= endSec; s += 600) {
-    const left = halfWidth + (s - currentTotalSec) * PX_PER_SEC;
+  for (let s = startLocalSec; s <= endLocalSec; s += 600) {
+    const left = halfWidth + (s - localTotalSec) * PX_PER_SEC;
     const isHour = s % 3600 === 0;
     const isHalfHour = s % 1800 === 0 && !isHour;
 
     if (isHour) {
       const d = new Date(s * 1000);
-      const hh = String(d.getUTCHours()).padStart(2, "0");
+      const hh = d.getUTCHours();
+      let label = "";
+      if (timeFormat24h) {
+        label = `${String(hh).padStart(2, "0")}:00`;
+      } else {
+        const ampm = hh >= 12 ? "PM" : "AM";
+        const h12 = hh % 12 || 12;
+        label = `${h12} ${ampm}`;
+      }
+
       ticks.push({
         sec: s,
         left,
         type: "major",
-        label: `${hh}:00`,
+        label,
       });
     } else if (isHalfHour) {
       ticks.push({
@@ -236,7 +305,7 @@ export default function TimeControlBar({
     }
   }
 
-  const { timeStr, dateStr } = formatUtc(epoch, disp);
+  const { timeStr, dateStr } = formatTimeWithZone(epoch, disp, timeZone, timeFormat24h);
 
   return (
     <div className="tcb-container">
@@ -324,6 +393,38 @@ export default function TimeControlBar({
                   </button>
                 ))}
               </div>
+
+              {/* Timezone Quick Toggle */}
+              {onTimeZoneChange && (
+                <div style={{ marginTop: "4px", paddingTop: "6px", borderTop: "1px solid rgba(255, 255, 255, 0.08)" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "4px" }}>
+                    <span className="tcb-popover-title">Timezone</span>
+                    <span style={{ fontSize: "0.68rem", color: "#94a3b8" }}>
+                      {timeZone === "UTC" ? "UTC (Universal)" : timeZone === "Asia/Kolkata" ? "IST (India +5:30)" : timeZone.split("/").pop()?.replace("_", " ")}
+                    </span>
+                  </div>
+                  <div style={{ display: "flex", gap: "4px" }}>
+                    <button
+                      className="tcb-preset-btn"
+                      style={{ flex: 1, textAlign: "center" }}
+                      data-selected={timeZone === "UTC"}
+                      onClick={() => onTimeZoneChange("UTC")}
+                      title="Coordinated Universal Time (Default)"
+                    >
+                      UTC
+                    </button>
+                    <button
+                      className="tcb-preset-btn"
+                      style={{ flex: 1, textAlign: "center" }}
+                      data-selected={timeZone === "Asia/Kolkata"}
+                      onClick={() => onTimeZoneChange("Asia/Kolkata")}
+                      title="Indian Standard Time (UTC+05:30)"
+                    >
+                      IST (India)
+                    </button>
+                  </div>
+                </div>
+              )}
 
               {/* Quick Actions */}
               <div className="tcb-popover-actions">

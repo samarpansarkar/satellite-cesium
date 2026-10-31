@@ -225,7 +225,7 @@ if (typeof window !== "undefined") {
   - `LabelGraphics`: Bold, anti-aliased font with semi-transparent black pill backdrop and disabled depth testing for unobstructed visibility across the globe.
 
 ### 4. `components/ControlMenu.tsx` (Floating Mission Control)
-- Collapsible floating glassmorphic mission control menu with 9 categories:
+- Collapsible floating glassmorphic mission control menu with 10 categories:
   - **Bookmarks**: Preset vantage point shortcuts (Global, Equator, Poles, Continents).
   - **Satellites**: Satellite management panel with live search, bulk Select/Clear, Tracks toggles (Ground track, Swath, Orbit path), and Attachments toggles (Camera, Sensor, Communications).
   - **Components**: Quick attachments summary & status.
@@ -234,6 +234,7 @@ if (typeof window !== "undefined") {
   - **Globe**: Atmosphere, night-side lighting, and depth testing controls.
   - **Sky**: Skybox and celestial background settings.
   - **Graphics**: Simulation speed slider, play/pause, and show orbits toggle.
+  - **Timeline**: Chronometer display format and timezone selector (default UTC, built-in Indian Standard Time / IST preset, 400+ world IANA timezone search, 24-hr military vs 12-hr format).
   - **About**: Mission operations telemetry HUD guide.
 
 ### 5. `components/SatelliteInfoPanel.tsx` (Telemetry HUD)
@@ -247,7 +248,10 @@ if (typeof window !== "undefined") {
 - Includes a close button to dismiss the overlay.
 
 ### 6. `components/TimeControlBar.tsx` (Timeline HUD)
-- Fixed bottom chronological telemetry scrubber with UTC timestamp readout, real-time clock syncing, 1x/5x/10x speed multiplier toggles, and frame stepping controls.
+- Orbital Reticle timeline HUD featuring:
+  - Raised center tab with white circular play/pause button, digital time display with pulsing live green indicator, and speedometer speed popover (0.5× to 1000×, jump to live, ±15m steps).
+  - Multi-timezone support (UTC default, Indian Standard Time / IST, global timezones) with synchronized local ruler ticks and format switcher (24h / 12h).
+  - Centered amber reticle needle (`#fbbf24`) with smooth horizontal tape ruler, 10-minute minor ticks, 30-minute mid ticks, and major hour headers.
 
 ### 7. `app/Providers.tsx` (Theme & Styling Engine)
 - Configures MUI `darkTheme`:

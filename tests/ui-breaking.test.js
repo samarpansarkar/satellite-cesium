@@ -16,6 +16,7 @@ const Cesium = require("cesium");
 const ControlMenu = require("../test-dist-cjs/components/ControlMenu.js").default;
 const SatelliteInfoPanel = require("../test-dist-cjs/components/SatelliteInfoPanel.js").default;
 const sensorUtils = require("../test-dist-cjs/components/cesium/sensorUtils.js");
+const { formatTimeWithZone, getTimezoneOffsetSec } = require("../test-dist-cjs/components/TimeControlBar.js");
 
 const EARTH_RADIUS = 6_371_000;
 
@@ -369,4 +370,62 @@ test("getSensorFootprintCenter: extreme inclination (0° or 180°) clamps to max
   // Must remain clamped on the Earth sphere surface
   const mag = Cesium.Cartesian3.magnitude(center);
   assert.ok(Math.abs(mag - EARTH_RADIUS) < 10.0, `Expected surface clamp, got ${mag}`);
+});
+
+// ─── 4. Timeline Settings & Timezone Precision Tests ─────────────────────────
+
+test("ControlMenu (Timeline): renders timeline settings with UTC and Indian Standard Time (IST) presets", () => {
+  const html = renderToString(
+    React.createElement(ControlMenu, {
+      initialSubMenu: "timeline",
+      timeZone: "Asia/Kolkata",
+      onTimeZoneChange: () => {},
+      timeFormat24h: true,
+      onTimeFormat24hChange: () => {},
+      baseMapMode: "natural",
+      onBaseMapChange: () => {},
+      showGrid: false,
+      onShowGridChange: () => {},
+      showOrbits: true,
+      onShowOrbitsChange: () => {},
+      simulationSpeed: 1,
+      onSimulationSpeedChange: () => {},
+      isPlaying: true,
+      onTogglePlayPause: () => {},
+    })
+  );
+
+  assert.ok(html.includes("Timeline Settings"), "Expected 'Timeline Settings' title");
+  assert.ok(html.includes("UTC"), "Expected UTC in presets");
+  assert.ok(html.includes("IST (India)"), "Expected IST (India) in presets");
+  assert.ok(html.includes("Indian Standard Time"), "Expected Indian Standard Time label");
+  assert.ok(html.includes("UTC+05:30"), "Expected UTC+05:30 offset");
+  assert.ok(html.includes("Select Any Timezone"), "Expected 400+ IANA search option");
+  assert.ok(html.includes("24-Hour Military Format"));
+});
+
+test("TimeControlBar: formatTimeWithZone correctly computes UTC and IST (Indian Time)", () => {
+  const timestamp = 1793446760000; // Fixed epoch: 2026-10-31 11:39:20 UTC
+
+  const utcResult = formatTimeWithZone(timestamp, 0, "UTC", true);
+  assert.strictEqual(utcResult.timeStr, "11:39:20");
+  assert.ok(utcResult.dateStr.includes("UTC"));
+
+  const istResult = formatTimeWithZone(timestamp, 0, "Asia/Kolkata", true);
+  // +5:30 ahead of 11:39:20 -> 17:09:20
+  assert.strictEqual(istResult.timeStr, "17:09:20");
+  assert.ok(istResult.dateStr.includes("IST"));
+  assert.strictEqual(istResult.tzLabel, "IST");
+
+  // 12-hour format verification
+  const ist12h = formatTimeWithZone(timestamp, 0, "Asia/Kolkata", false);
+  assert.strictEqual(ist12h.timeStr, "05:09:20 PM");
+});
+
+test("TimeControlBar: getTimezoneOffsetSec calculates exact +19800s (+5h 30m) for Asia/Kolkata", () => {
+  const utcOffset = getTimezoneOffsetSec("UTC");
+  assert.strictEqual(utcOffset, 0);
+
+  const istOffset = getTimezoneOffsetSec("Asia/Kolkata");
+  assert.strictEqual(istOffset, 19800, `Expected 19800s (+5.5h), got ${istOffset}`);
 });

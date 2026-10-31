@@ -19,6 +19,8 @@ export default function Home() {
   const [showOrbits, setShowOrbits] = useState<boolean>(true);
   const [showGrid, setShowGrid] = useState<boolean>(false);
   const [baseMapMode, setBaseMapMode] = useState<"natural" | "grid">("natural");
+  const [timeZone, setTimeZone] = useState<string>("UTC");
+  const [timeFormat24h, setTimeFormat24h] = useState<boolean>(true);
 
   const handleTogglePlayPause = () => {
     setIsPlaying((prev) => {
@@ -94,6 +96,10 @@ export default function Home() {
             onSimulationSpeedChange={handleSimulationSpeedChange}
             isPlaying={isPlaying}
             onTogglePlayPause={handleTogglePlayPause}
+            timeZone={timeZone}
+            onTimeZoneChange={setTimeZone}
+            timeFormat24h={timeFormat24h}
+            onTimeFormat24hChange={setTimeFormat24h}
           />
 
           <SatelliteInfoPanel 
@@ -112,6 +118,9 @@ export default function Home() {
           onTogglePlayPause={handleTogglePlayPause}
           simulationSpeed={simulationSpeed}
           onSimulationSpeedChange={handleSimulationSpeedChange}
+          timeZone={timeZone}
+          onTimeZoneChange={setTimeZone}
+          timeFormat24h={timeFormat24h}
         />
       </Box>
     </Box>
