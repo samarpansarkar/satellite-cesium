@@ -104,8 +104,8 @@ export function SatelliteEntities({ orbit, liveSat, showOrbits }: SatelliteEntit
       {/* ── Camera Torch Light Effect ───────────────────────────────────────── */}
       {orbit.cameraWithProps && liveSat.camera?.isActive && (
         <TorchLight
-          color={Cesium.Color.fromCssColorString("#38bdf8")}
-          accentColor={Cesium.Color.WHITE}
+          color={Cesium.Color.fromCssColorString("#0099ff")}
+          accentColor={Cesium.Color.fromCssColorString("#e0f2fe")}
           satPosCallback={() => getCachedSatPosition(liveSat, animClock.elapsedTime)}
           groundPosCallback={() => getCachedSubPosition(liveSat, animClock.elapsedTime)}
           radiusCallback={() => {

@@ -15,6 +15,7 @@ export interface CameraSensorPayload {
   fovDeg: number;
   inclinationDeg?: number;
   inclinationDegree?: number;
+  animationSpeed?: number;
 }
 
 /** Payload for the communication system of a satellite. */

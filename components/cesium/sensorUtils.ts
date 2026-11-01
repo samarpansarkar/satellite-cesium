@@ -222,4 +222,141 @@ export function getCrosshairPoints(
   return [p1, c, p2, c, p3, c, p4];
 }
 
+/**
+ * Returns an array of Cartesian3 points forming a closed rectangular viewfinder frame
+ * matching the camera aperture on the ground footprint.
+ */
+export function getViewfinderFramePoints(
+  center: Cesium.Cartesian3,
+  radius: number,
+  normal?: Cesium.Cartesian3,
+  conformToSphere: boolean = true,
+  altitudeOffsetMeters: number = 1150
+): Cesium.Cartesian3[] {
+  const n = normal
+    ? Cesium.Cartesian3.normalize(normal, new Cesium.Cartesian3())
+    : Cesium.Cartesian3.normalize(center, new Cesium.Cartesian3());
+  const ref = Math.abs(n.z) < 0.9 ? UNIT_Z : UNIT_X;
+  const u = Cesium.Cartesian3.cross(n, ref, new Cesium.Cartesian3());
+  Cesium.Cartesian3.normalize(u, u);
+  const v = Cesium.Cartesian3.cross(n, u, new Cesium.Cartesian3());
+  Cesium.Cartesian3.normalize(v, v);
+
+  const centerDist = Cesium.Cartesian3.magnitude(center);
+  const targetDist = centerDist + altitudeOffsetMeters;
+
+  const project = (rawPt: Cesium.Cartesian3) => {
+    if (!conformToSphere) return rawPt;
+    const dir = Cesium.Cartesian3.normalize(rawPt, new Cesium.Cartesian3());
+    return Cesium.Cartesian3.multiplyByScalar(dir, targetDist, new Cesium.Cartesian3());
+  };
+
+  const L = radius * 0.7071; // Inscribed square half-side
+  const p1 = project(
+    Cesium.Cartesian3.add(
+      center,
+      Cesium.Cartesian3.add(
+        Cesium.Cartesian3.multiplyByScalar(u, L, new Cesium.Cartesian3()),
+        Cesium.Cartesian3.multiplyByScalar(v, L, new Cesium.Cartesian3()),
+        new Cesium.Cartesian3()
+      ),
+      new Cesium.Cartesian3()
+    )
+  );
+  const p2 = project(
+    Cesium.Cartesian3.add(
+      center,
+      Cesium.Cartesian3.add(
+        Cesium.Cartesian3.multiplyByScalar(u, -L, new Cesium.Cartesian3()),
+        Cesium.Cartesian3.multiplyByScalar(v, L, new Cesium.Cartesian3()),
+        new Cesium.Cartesian3()
+      ),
+      new Cesium.Cartesian3()
+    )
+  );
+  const p3 = project(
+    Cesium.Cartesian3.add(
+      center,
+      Cesium.Cartesian3.add(
+        Cesium.Cartesian3.multiplyByScalar(u, -L, new Cesium.Cartesian3()),
+        Cesium.Cartesian3.multiplyByScalar(v, -L, new Cesium.Cartesian3()),
+        new Cesium.Cartesian3()
+      ),
+      new Cesium.Cartesian3()
+    )
+  );
+  const p4 = project(
+    Cesium.Cartesian3.add(
+      center,
+      Cesium.Cartesian3.add(
+        Cesium.Cartesian3.multiplyByScalar(u, L, new Cesium.Cartesian3()),
+        Cesium.Cartesian3.multiplyByScalar(v, -L, new Cesium.Cartesian3()),
+        new Cesium.Cartesian3()
+      ),
+      new Cesium.Cartesian3()
+    )
+  );
+
+  return [p1, p2, p3, p4, p1];
+}
+
+/**
+ * Returns an array of Cartesian3 points forming a transverse camera scanline
+ * across the ground footprint, sweeping from -radius to +radius.
+ */
+export function getScanlinePoints(
+  center: Cesium.Cartesian3,
+  radius: number,
+  fraction: number, // from -1 to 1
+  normal?: Cesium.Cartesian3,
+  conformToSphere: boolean = true,
+  altitudeOffsetMeters: number = 1250
+): Cesium.Cartesian3[] {
+  const n = normal
+    ? Cesium.Cartesian3.normalize(normal, new Cesium.Cartesian3())
+    : Cesium.Cartesian3.normalize(center, new Cesium.Cartesian3());
+  const ref = Math.abs(n.z) < 0.9 ? UNIT_Z : UNIT_X;
+  const u = Cesium.Cartesian3.cross(n, ref, new Cesium.Cartesian3());
+  Cesium.Cartesian3.normalize(u, u);
+  const v = Cesium.Cartesian3.cross(n, u, new Cesium.Cartesian3());
+  Cesium.Cartesian3.normalize(v, v);
+
+  const centerDist = Cesium.Cartesian3.magnitude(center);
+  const targetDist = centerDist + altitudeOffsetMeters;
+
+  const project = (rawPt: Cesium.Cartesian3) => {
+    if (!conformToSphere) return rawPt;
+    const dir = Cesium.Cartesian3.normalize(rawPt, new Cesium.Cartesian3());
+    return Cesium.Cartesian3.multiplyByScalar(dir, targetDist, new Cesium.Cartesian3());
+  };
+
+  const clampedFraction = Math.max(-0.95, Math.min(0.95, fraction));
+  const offsetV = radius * clampedFraction;
+  const halfChord = Math.sqrt(Math.max(0, radius * radius - offsetV * offsetV)) * 0.95;
+
+  const baseCenter = Cesium.Cartesian3.add(
+    center,
+    Cesium.Cartesian3.multiplyByScalar(v, offsetV, new Cesium.Cartesian3()),
+    new Cesium.Cartesian3()
+  );
+
+  const ptA = project(
+    Cesium.Cartesian3.add(
+      baseCenter,
+      Cesium.Cartesian3.multiplyByScalar(u, halfChord, new Cesium.Cartesian3()),
+      new Cesium.Cartesian3()
+    )
+  );
+  const ptB = project(
+    Cesium.Cartesian3.add(
+      baseCenter,
+      Cesium.Cartesian3.multiplyByScalar(u, -halfChord, new Cesium.Cartesian3()),
+      new Cesium.Cartesian3()
+    )
+  );
+
+  return [ptA, ptB];
+}
+
+
 
